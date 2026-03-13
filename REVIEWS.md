@@ -41,3 +41,59 @@ Policy should feel like templates or presets, not raw permission rebuilding.
 
 ### Fleet model
 One human should be able to oversee multiple agents, each with its own budget, rules, and scoped session key, plus a global exposure view.
+
+## Gemini — design / UX / escalation feedback
+
+### Core takeaways
+- The hybrid model is the winning UX for Hashapp.
+- The product should feel like an **intent engine**, not a wallet manager.
+- The biggest UX risk is **fatigue of permission**.
+
+### Fatigue of permission
+If users have to re-sign new permissions for every small variation, the automated promise collapses. The product must minimize repeated permission friction while still keeping trust boundaries real.
+
+### Three-tier escalation model
+#### Intra-session
+- request is inside current rules
+- backend validates against current session
+- agent executes silently
+- user sees a receipt after
+
+#### Policy shift (low risk)
+- app proposes a lightweight session update
+- user gets a quick prompt
+- example: extend expiry or widen a low-risk limit slightly
+
+#### Out-of-bounds (high risk)
+- materially new risk or scope
+- full re-auth / new session required
+- example: new payee or large spend ceiling increase
+
+### New product insight
+Presets should feel like **personas**, not low-level permission bundles.
+Examples:
+- Intern
+- Researcher
+- Travel Agent
+- Degen / Trader
+- Ops
+
+### Activity feed guidance
+The feed should be **state-aware** and **intent-aware**, not transaction-explorer-like.
+
+Instead of:
+- Sent 0.01 ETH to 0x123...
+
+Prefer:
+- Agent Scout bought research credits for today’s market scan.
+
+### Human-readable failure states
+The app should translate low-level failures into meaningful states.
+Example:
+- “Payee identity mismatch”
+not
+- “Transaction failed”
+
+### Base-specific notes
+- Use Basenames / human-readable identities to improve allowlist readability.
+- Use batching where possible so one user action feels like one action, not multiple blockchain rows.

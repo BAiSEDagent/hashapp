@@ -7,6 +7,14 @@
 - dense but readable activity list
 - premium consumer feel, not enterprise tooling
 - normal money app for abnormal agent behavior
+- consumer-grade clarity over protocol jargon
+
+## UX principles
+- minimize **fatigue of permission**
+- default to silent success when safely in-bounds
+- make approvals feel lightweight and reversible
+- show intent, not raw blockchain internals
+- translate failures into human-readable explanations
 
 ## Main tabs
 1. Home
@@ -31,12 +39,14 @@
 - human-readable statuses
 - tap into receipt detail
 - support filtering by agent, service, or status
+- feed should be intent-aware, not explorer-style
 
 ### Pay / Approval
 - incoming purchase requests
 - approve / deny / always allow under rule
 - show reason, vendor, amount, policy match
 - clearly distinguish manual approvals vs auto-approved actions
+- clearly distinguish low-risk scope updates vs high-risk re-auths
 
 ### Payees
 - search by ENS, Basename, address, agent name, service name
@@ -47,12 +57,41 @@
 
 ### Agent detail
 - linked identity
-- active rules
+- active rules / persona
 - allowed vendors
 - daily / per-tx limits
 - budget remaining
 - pause / revoke
 - session status
+
+## Escalation UX
+### Intra-session
+- no prompt
+- silent execution
+- receipt appears after action
+
+### Policy shift
+- quick prompt
+- simple language like “ResearchBot needs 1 more week” or “Approve this related vendor?”
+
+### Out-of-bounds
+- full re-auth
+- clear explanation of what changed materially
+
+## Failure states
+Avoid generic blockchain failure language.
+
+Prefer:
+- Payee identity mismatch
+- Budget exceeded
+- Session expired
+- Requires updated approval
+- New vendor needs confirmation
+
+Avoid:
+- Transaction failed
+- Execution reverted
+- Policy hook rejected
 
 ## Fleet UX
 The product should feel just as good with one agent as with five.

@@ -29,34 +29,58 @@ Examples:
 - escalation rules
 
 ## Escalation model
-### Quick prompt
-Use a quick prompt when a request is unusual but does not require changing the durable spending scope.
+Hashapp should use a three-tier escalation model.
+
+### Tier 1 — Intra-session
+Use silent execution when the request is already inside the active session boundary.
 
 Examples:
-- outlier spend inside a broad category
-- lower-confidence trusted status
-- contextual mismatch
-- one-off override request
+- approved payee
+- amount within cap
+- valid expiry window
+- no contextual mismatch
 
-### Session refresh
-Use a session refresh when a hard boundary changes materially.
+User experience:
+- no prompt
+- receipt appears after
+
+### Tier 2 — Policy shift (low risk)
+Use a quick prompt when the request is close to current scope but needs a lightweight update.
+
+Examples:
+- extend expiry by a few days
+- widen a low-risk cap slightly
+- approve a related payee under same vendor umbrella
+
+User experience:
+- lightweight confirmation
+- app proposes updated scope
+- agent continues under refreshed permissions
+
+### Tier 3 — Out-of-bounds (high risk)
+Use full re-auth when a hard boundary changes materially.
 
 Triggers:
-- spend ceiling changes
-- expiry changes
-- payee allowlist changes
-- allowed action / call target changes
-- agent role changes
-- approval mode changes that affect hard enforcement
+- major spend ceiling changes
+- new payee or destination class
+- new action / call target
+- role changes
+- major approval-mode change
+
+User experience:
+- explicit new permission set
+- strong confirmation
+- likely biometric or wallet-level signature in production
 
 ## Preset model
 Users should not think in terms of rebuilding session keys.
-They should think in terms of policy presets.
+They should think in terms of policy presets or personas.
 
-Example presets:
+Example personas:
 - Manual only
 - Trusted vendors only
-- Research mode
+- Intern
+- Researcher
 - Trading mode
 - Ops mode
 - High-risk / always confirm
@@ -70,8 +94,8 @@ Each preset maps to:
 - I choose what kind of freedom this agent has.
 - The app handles the details.
 - If the request is normal, it flows.
-- If it is risky, I get asked.
-- If I change the rules materially, the app refreshes the scope.
+- If it is slightly outside the norm, I get a quick prompt.
+- If it is materially risky, I explicitly re-authorize.
 
 ## Fleet model
 Hashapp should support one human controlling multiple agents.
