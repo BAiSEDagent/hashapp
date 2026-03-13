@@ -58,8 +58,8 @@ Hashapp should feel:
 - `IMG_8009.PNG` → Receipt detail
 - `IMG_8010.PNG` → Amount entry / CTA hierarchy
 - `IMG_8012.PNG` → Home / balance hierarchy
-- `IMG_8023.PNG` → Payees / contacts search and selection
-- optional: `IMG_8022.PNG` → no-match / search-empty state
+- `IMG_8022.PNG` → Payees / trusted payees / top-of-screen identity rail
+- `IMG_8023.PNG` → deeper payee search and selection flow
 
 ## Product rules
 - show intent, not raw tx data
