@@ -11,11 +11,11 @@ const TRUSTED_PAYEES = [
 ];
 
 const RECENT_DESTINATIONS = [
-  { name: 'PitchBook', initial: 'P', color: 'bg-blue-600', date: 'Yesterday', amount: '$35.00', verified: true },
-  { name: 'OpenAI', initial: 'O', color: 'bg-zinc-700', date: 'Yesterday', amount: '$45.00', verified: true },
-  { name: 'CloudAnalytics', initial: 'C', color: 'bg-rose-600', date: 'Mar 12', amount: '$299.00', verified: false },
-  { name: 'Statista', initial: 'S', color: 'bg-orange-500', date: 'Mar 11', amount: '$29.00', verified: true },
-  { name: 'Bloomberg', initial: 'B', color: 'bg-zinc-800', date: 'Mar 05', amount: '$150.00', verified: true },
+  { name: 'PitchBook', initial: 'P', color: 'bg-blue-600', date: 'Yesterday', totalSpend: '$185.00', txCount: 6, verified: true },
+  { name: 'OpenAI', initial: 'O', color: 'bg-zinc-700', date: 'Yesterday', totalSpend: '$312.00', txCount: 14, verified: true },
+  { name: 'CloudAnalytics', initial: 'C', color: 'bg-rose-600', date: 'Mar 12', totalSpend: '$299.00', txCount: 1, verified: false },
+  { name: 'Statista', initial: 'S', color: 'bg-orange-500', date: 'Mar 11', totalSpend: '$87.00', txCount: 3, verified: true },
+  { name: 'Bloomberg', initial: 'B', color: 'bg-zinc-800', date: 'Mar 05', totalSpend: '$450.00', txCount: 3, verified: true },
 ];
 
 export default function Payees() {
@@ -29,7 +29,7 @@ export default function Payees() {
       {/* Trusted Rail */}
       <div className="mb-8">
         <div className="px-6 mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-foreground">Trusted Destinations</h2>
+          <h2 className="text-sm font-semibold text-foreground">Favorites</h2>
         </div>
         <div className="flex overflow-x-auto gap-4 px-6 pb-4 snap-x snap-mandatory hide-scrollbar">
           {TRUSTED_PAYEES.map((payee) => (
@@ -72,10 +72,13 @@ export default function Payees() {
             
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground truncate">{dest.name}</h3>
-              <p className="text-xs text-muted-foreground">{dest.date}</p>
+              <p className="text-xs text-muted-foreground">Last: {dest.date} · {dest.txCount} {dest.txCount === 1 ? 'purchase' : 'purchases'}</p>
             </div>
             
-            <span className="font-medium text-foreground">{dest.amount}</span>
+            <div className="text-right">
+              <span className="font-medium text-foreground">{dest.totalSpend}</span>
+              <p className="text-[10px] text-muted-foreground/60">total spend</p>
+            </div>
           </div>
         ))}
       </div>

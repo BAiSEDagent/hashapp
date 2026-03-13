@@ -64,6 +64,10 @@ export default function Receipt() {
               <span className="text-sm text-muted-foreground">Stated Purpose</span>
               <span className="text-sm text-foreground font-medium leading-relaxed">{item.intent}</span>
             </div>
+            <DetailRow 
+              label="Approval" 
+              value={item.status === 'AUTO_APPROVED' ? 'Auto-approved' : item.status === 'APPROVED' ? 'Human-approved' : item.status === 'BLOCKED' ? 'Blocked by rule' : item.status === 'DECLINED' ? 'Declined' : 'Pending'} 
+            />
             <div className="flex items-center justify-between pt-2 border-t border-border/50">
               <span className="text-sm text-muted-foreground">Authorized by</span>
               <div className="flex items-center gap-2">

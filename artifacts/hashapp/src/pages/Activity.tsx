@@ -18,7 +18,10 @@ export default function Activity() {
     <div className="flex flex-col min-h-full">
       {/* Header */}
       <header className="px-6 pt-12 pb-4 flex items-center justify-between sticky top-0 bg-background/90 backdrop-blur-md z-10">
-        <h1 className="text-3xl font-bold tracking-tight">Activity</h1>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Activity</h1>
+          <p className="text-xs text-muted-foreground mt-1">Scout · Research Agent</p>
+        </div>
         <div className="relative">
           <AvatarIcon initial="S" colorClass="bg-zinc-800 border border-zinc-700" />
           <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-background"></div>
