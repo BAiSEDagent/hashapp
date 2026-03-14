@@ -66,3 +66,32 @@ Fixed
 
 ### Notes
 This was a good example of mixed audit quality: several useful corrections plus one major hallucinated standards claim. We should keep logging both valid findings and invalid reviewer claims.
+
+---
+
+## 2026-03-14 — Navigation and money-model review
+
+### Source
+- manual product review
+- comparison against Cash App reference patterns
+
+### Findings
+- separate Trusted Destinations tab overlapped too much with Activity
+- app lacked a true Money tab, weakening the financial-product grammar
+- money representation risked sounding custodial without clearer connected-wallet language
+
+### Severity
+- High: missing Money tab / unclear product grammar
+- Medium: duplicate payee/history surfaces
+- High: custody ambiguity risk
+
+### Action taken
+- moved trusted destinations/search into Activity
+- adopted Money / Activity / Scout / Rules top-level nav direction
+- clarified non-custodial language around connected wallet and Scout allocation
+
+### Status
+Partially fixed / in progress through Replit iterations
+
+### Notes
+This was a key product-shape correction rather than a visual polish pass.

@@ -168,3 +168,43 @@ Active
 
 ### Notes
 Preferred top-level nav direction: Money, Activity, Scout, Rules.
+
+---
+
+## 2026-03-14 — Spend permissions become a first-class product object
+
+### Decision
+Treat spend permissions as an explicit product object rather than a hidden implementation detail.
+
+### Why
+This is the clearest way to strengthen Hashapp on Base’s “Agents that pay” track by making conditional spending and recurring permissions visible and legible.
+
+### Alternatives considered
+- keep recurring permissions implicit in rules only
+- leave conditional payment as architecture story only
+
+### Status
+Active
+
+### Notes
+Best example: recurring DataStream Pro approval with vendor, amount, cadence, and revocable state.
+
+---
+
+## 2026-03-14 — ENS/Basenames support trust in Activity and search
+
+### Decision
+Use ENS/Basenames as a trust and readability layer for agents, trusted destinations, humans, and search results.
+
+### Why
+This improves the “Agents that trust” story and makes Activity/search/payees feel human-readable instead of crypto-native.
+
+### Alternatives considered
+- raw address display everywhere
+- identity only in receipt/proof detail
+
+### Status
+Active
+
+### Notes
+Best surfaces: Activity trusted-destination rail, search, payee rows, Scout identity, receipt proof context.
