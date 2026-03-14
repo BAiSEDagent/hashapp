@@ -4,6 +4,7 @@ This folder captures how Hashapp could align with individual partner tracks with
 
 ## Current docs
 - `BASE.md`
+- `METAMASK.md`
 - `UNISWAP.md`
 - `ENS.md`
 - `SELF.md`
