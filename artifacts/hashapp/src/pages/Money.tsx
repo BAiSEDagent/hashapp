@@ -1,29 +1,55 @@
 import React from 'react';
-import { Wallet, Shield, ArrowRight } from 'lucide-react';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { Wallet, Shield, ArrowRight, ExternalLink, RefreshCw } from 'lucide-react';
+import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi';
 import { useDemo, type SpendPermission } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { useLocation } from 'wouter';
+import { USDC_BASE_SEPOLIA } from '@/config/spendPermission';
+import { formatUnits } from 'viem';
+
+const ERC20_BALANCE_ABI = [
+  {
+    name: 'balanceOf',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+  },
+] as const;
 
 export default function Money() {
-  const { feed, rules, spendPermissions } = useDemo();
+  const { feed, rules, spendPermissions, resetDemo } = useDemo();
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
   const [, setLocation] = useLocation();
 
+  const { data: usdcBalanceRaw } = useReadContract({
+    address: USDC_BASE_SEPOLIA,
+    abi: ERC20_BALANCE_ABI,
+    functionName: 'balanceOf',
+    args: address ? [address] : undefined,
+    chainId: 84532,
+    query: { enabled: isConnected && !!address },
+  });
+
+  const usdcBalance = usdcBalanceRaw !== undefined
+    ? parseFloat(formatUnits(usdcBalanceRaw, 6)).toFixed(2)
+    : null;
+
   const spent = feed
     .filter(i => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED')
     .reduce((sum, i) => sum + i.amount, 0);
 
-  const monthlyLimit = 700;
-  const available = monthlyLimit - spent;
   const activeRulesCount = rules.filter(r => r.enabled).length;
   const activePermissions = spendPermissions.filter(p => p.state === 'active');
   const purchaseCount = feed.filter(i => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED').length;
 
-  const truncatedAddress = address 
-    ? `${address.slice(0, 6)}...${address.slice(-4)}` 
+  // Permission allowance total (sum of active spend permissions)
+  const totalPermissionAllowance = activePermissions.reduce((sum, p) => sum + p.amount, 0);
+
+  const truncatedAddress = address
+    ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : null;
 
   return (
@@ -34,46 +60,68 @@ export default function Money() {
       </header>
 
       <div className="px-6 pt-5 flex flex-col gap-4">
+
+        {/* Main balance card */}
         <div className="relative bg-card rounded-2xl p-6 border border-border/50 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] via-transparent to-transparent" />
           <div className="relative">
             <div className="flex items-center gap-2 mb-2">
               <Wallet size={13} className="text-muted-foreground/50" />
-              <span className="text-[12px] text-muted-foreground/60 font-medium">Available for Scout</span>
+              <span className="text-[12px] text-muted-foreground/60 font-medium">
+                {isConnected ? 'Wallet Balance (USDC)' : 'Available for Scout'}
+              </span>
             </div>
-            <h2 className="text-[48px] font-bold tracking-tighter text-foreground leading-none mb-1.5">
-              ${available.toFixed(2)}
-            </h2>
-            <p className="text-[12px] text-muted-foreground/40">
-              USDC · remaining under active rules
-            </p>
 
-            <div className="w-full h-[3px] bg-white/[0.06] rounded-full mt-6 overflow-hidden">
-              <div 
-                className="h-full bg-primary rounded-full transition-all duration-700 ease-out" 
-                style={{ width: `${Math.min((spent / monthlyLimit) * 100, 100)}%` }} 
-              />
-            </div>
-            <div className="flex justify-between mt-2">
-              <span className="text-[10px] text-muted-foreground/35">${spent.toFixed(2)} spent this month</span>
-              <span className="text-[10px] text-muted-foreground/35">${monthlyLimit.toFixed(2)} allocated</span>
-            </div>
+            {isConnected ? (
+              <>
+                <h2 className="text-[48px] font-bold tracking-tighter text-foreground leading-none mb-1.5">
+                  {usdcBalance !== null ? `$${usdcBalance}` : '—'}
+                </h2>
+                <p className="text-[12px] text-muted-foreground/40">
+                  USDC · {chain?.name || 'Base Sepolia'} · {truncatedAddress}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-[48px] font-bold tracking-tighter text-foreground leading-none mb-1.5">
+                  —
+                </h2>
+                <p className="text-[12px] text-muted-foreground/40">
+                  Connect a wallet to see your balance
+                </p>
+              </>
+            )}
+
+            {activePermissions.length > 0 && (
+              <div className="mt-5 pt-4 border-t border-white/[0.06]">
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] text-muted-foreground/40">Active permission allowances</span>
+                  <span className="text-[13px] font-semibold tabular-nums">${totalPermissionAllowance}/mo</span>
+                </div>
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-[10px] text-muted-foreground/30">Demo spend tracked</span>
+                  <span className="text-[10px] text-muted-foreground/30 tabular-nums">${spent.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Stats row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-card rounded-2xl p-4 border border-border/30">
-            <span className="text-[10px] text-muted-foreground/45 font-medium uppercase tracking-wider">Allocated to Scout</span>
-            <p className="text-[22px] font-bold tracking-tight mt-1">${monthlyLimit.toFixed(2)}</p>
-            <p className="text-[10px] text-muted-foreground/30 mt-0.5">USDC · monthly budget</p>
+            <span className="text-[10px] text-muted-foreground/45 font-medium uppercase tracking-wider">Active Permissions</span>
+            <p className="text-[22px] font-bold tracking-tight mt-1">{activePermissions.length}</p>
+            <p className="text-[10px] text-muted-foreground/30 mt-0.5">${totalPermissionAllowance} USDC/mo</p>
           </div>
           <div className="bg-card rounded-2xl p-4 border border-border/30">
-            <span className="text-[10px] text-muted-foreground/45 font-medium uppercase tracking-wider">Spent this month</span>
+            <span className="text-[10px] text-muted-foreground/45 font-medium uppercase tracking-wider">Demo spend</span>
             <p className="text-[22px] font-bold tracking-tight mt-1">${spent.toFixed(2)}</p>
             <p className="text-[10px] text-muted-foreground/30 mt-0.5">{purchaseCount} purchases</p>
           </div>
         </div>
 
+        {/* Active spend permissions */}
         {activePermissions.length > 0 && (
           <div className="flex flex-col gap-2 mt-1">
             <h3 className="text-[10px] font-semibold text-muted-foreground/35 uppercase tracking-[0.2em] pl-1">
@@ -85,7 +133,8 @@ export default function Money() {
           </div>
         )}
 
-        <div 
+        {/* Rules shortcut */}
+        <div
           onClick={() => setLocation('/rules')}
           className="bg-card rounded-2xl p-4 border border-border/30 flex items-center gap-4 cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
         >
@@ -99,6 +148,7 @@ export default function Money() {
           <ArrowRight size={14} className="text-muted-foreground/25 shrink-0" />
         </div>
 
+        {/* Wallet connection card */}
         <div className="bg-card rounded-2xl p-4 border border-border/30 mt-1">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
@@ -117,7 +167,7 @@ export default function Money() {
               </div>
             </div>
             {isConnected ? (
-              <button 
+              <button
                 onClick={() => disconnect()}
                 className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
               >
@@ -149,9 +199,18 @@ export default function Money() {
             </div>
           )}
         </div>
+
+        {/* Demo reset */}
+        <button
+          onClick={resetDemo}
+          className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground/25 hover:text-muted-foreground/50 transition-colors mt-2 py-2"
+        >
+          <RefreshCw size={11} />
+          Reset demo state
+        </button>
       </div>
 
-      <div className="mt-auto pt-8 text-center pb-4">
+      <div className="mt-auto pt-4 text-center pb-4">
         <p className="text-[10px] text-muted-foreground/20 font-medium tracking-widest uppercase">
           Base Sepolia · Testnet
         </p>
@@ -162,14 +221,30 @@ export default function Money() {
 
 function SpendPermissionRow({ permission }: { permission: SpendPermission }) {
   const cadenceLabel = { daily: '/day', weekly: '/wk', monthly: '/mo' };
+  const isRealOnchain = permission.isReal && permission.txHash;
+
   return (
     <div className="flex items-center gap-3.5 p-3 rounded-xl bg-card border border-border/30 hover:border-border/50 transition-colors">
       <AvatarIcon initial={permission.vendorInitial} colorClass={permission.vendorColor} size="sm" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-semibold text-foreground">{permission.vendor}</span>
-          <div className={`w-[5px] h-[5px] rounded-full ${permission.state === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+          <div className={`w-[5px] h-[5px] rounded-full shrink-0 ${permission.state === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
         </div>
+        {isRealOnchain ? (
+          <a
+            href={`https://sepolia.basescan.org/tx/${permission.txHash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 text-[10px] text-emerald-400/60 hover:text-emerald-400/90 transition-colors mt-0.5"
+          >
+            <ExternalLink size={8} />
+            Onchain · Basescan
+          </a>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/30 mt-0.5 block">Demo only</span>
+        )}
       </div>
       <div className="text-right shrink-0">
         <span className="text-[13px] font-semibold tabular-nums">${permission.amount}</span>

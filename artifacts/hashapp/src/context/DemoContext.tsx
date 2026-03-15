@@ -47,6 +47,7 @@ interface DemoState {
   approvePending: (id: string, realTxHash?: string) => void;
   declinePending: (id: string) => void;
   toggleRule: (id: string) => void;
+  resetDemo: () => void;
 }
 
 const INITIAL_FEED: FeedItem[] = [
@@ -280,8 +281,16 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     }
   }, [stage]);
 
+  const resetDemo = useCallback(() => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    setFeed(INITIAL_FEED);
+    setRules(INITIAL_RULES);
+    setSpendPermissions(INITIAL_SPEND_PERMISSIONS);
+    setStage('INITIAL');
+  }, []);
+
   return (
-    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, approvePending, declinePending, toggleRule }}>
+    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, approvePending, declinePending, toggleRule, resetDemo }}>
       {children}
     </DemoContext.Provider>
   );

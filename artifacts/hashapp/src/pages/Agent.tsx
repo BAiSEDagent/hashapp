@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, Shield, ArrowRight, CheckCircle2, Zap, RefreshCw } from 'lucide-react';
+import { Bot, Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ExternalLink } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
@@ -82,11 +82,25 @@ export default function Agent() {
             <div className="space-y-3">
               {activePermissions.map(perm => {
                 const cadenceLabel = { daily: '/day', weekly: '/wk', monthly: '/mo' };
+                const isRealOnchain = perm.isReal && perm.txHash;
                 return (
                   <div key={perm.id} className="flex items-center gap-3">
                     <AvatarIcon initial={perm.vendorInitial} colorClass={perm.vendorColor} size="sm" />
                     <div className="flex-1 min-w-0">
                       <span className="text-[13px] font-medium text-foreground">{perm.vendor}</span>
+                      {isRealOnchain ? (
+                        <a
+                          href={`https://sepolia.basescan.org/tx/${perm.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[10px] text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                        >
+                          <ExternalLink size={8} />
+                          Onchain proof
+                        </a>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/30 block">Demo</span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[13px] font-semibold tabular-nums">${perm.amount}{cadenceLabel[perm.cadence]}</span>
