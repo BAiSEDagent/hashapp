@@ -1,8 +1,18 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Loader2, ExternalLink } from 'lucide-react';
 import { useLocation } from 'wouter';
+import { useAccount, useWriteContract, useConnect } from 'wagmi';
+import { waitForTransactionReceipt } from 'wagmi/actions';
+import { walletConfig } from '@/config/wallet';
 import { useDemo, type FeedItem, type StatusType } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
+import {
+  SPEND_PERMISSION_MANAGER_ADDRESS,
+  SPEND_PERMISSION_MANAGER_ABI,
+  SCOUT_SPENDER_ADDRESS,
+  USDC_BASE_SEPOLIA,
+} from '@/config/spendPermission';
 
 const TRUSTED_DESTINATIONS = [
   { name: 'PitchBook', initial: 'P', color: 'bg-blue-600' },
@@ -72,7 +82,7 @@ export default function Activity() {
                     key={item.id} 
                     item={item} 
                     isLast={i === items.length - 1}
-                    onApprove={() => approvePending(item.id)}
+                    onApprove={(txHash?: string) => approvePending(item.id, txHash)}
                     onDecline={() => declinePending(item.id)}
                     onClick={() => {
                       if (item.status !== 'PENDING') {
@@ -99,7 +109,7 @@ function FeedCard({
 }: { 
   item: FeedItem; 
   isLast: boolean;
-  onApprove: () => void; 
+  onApprove: (txHash?: string) => void; 
   onDecline: () => void;
   onClick: () => void;
 }) {
@@ -107,64 +117,7 @@ function FeedCard({
   const isBlocked = item.status === 'BLOCKED' || item.status === 'DECLINED';
 
   if (isPending) {
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, y: 20, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ duration: 0.45, type: "spring", bounce: 0.2 }}
-        data-testid={`card-feed-${item.id}`}
-        className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.05] to-transparent p-5 my-2"
-      >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/[0.03] via-transparent to-transparent" />
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="px-2 py-0.5 rounded-md bg-amber-500/12 border border-amber-500/15">
-              <span className="text-[9px] font-semibold text-amber-400/90 uppercase tracking-[0.1em]">Spend Permission Request</span>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-4">
-            <AvatarIcon initial={item.merchantInitial} colorClass={item.merchantColor} size="lg" />
-            <div className="flex-1 min-w-0 pt-0.5">
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="text-[17px] font-semibold text-foreground leading-tight">{item.merchant}</h3>
-                <div className="text-right shrink-0 ml-3">
-                  <span className="text-[22px] font-bold tracking-tight">{item.amountStr}</span>
-                  <span className="text-[12px] font-medium text-muted-foreground/50">/mo</span>
-                </div>
-              </div>
-              <p className="text-[12px] text-muted-foreground/60 leading-relaxed pr-2">
-                Scout wants recurring access to real-time market data
-              </p>
-            </div>
-          </div>
-
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.15 }}
-            className="flex gap-3 mt-5 pt-4 border-t border-white/[0.06]"
-          >
-            <button 
-              data-testid={`button-decline-${item.id}`}
-              onClick={(e) => { e.stopPropagation(); onDecline(); }}
-              className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-foreground/70 bg-white/[0.06] hover:bg-white/[0.09] active:scale-[0.98] transition-all"
-            >
-              Decline
-            </button>
-            <button 
-              data-testid={`button-approve-${item.id}`}
-              onClick={(e) => { e.stopPropagation(); onApprove(); }}
-              className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
-            >
-              Grant Permission
-            </button>
-          </motion.div>
-        </div>
-      </motion.div>
-    );
+    return <PendingCard item={item} onApprove={onApprove} onDecline={onDecline} />;
   }
 
   return (
@@ -194,6 +147,184 @@ function FeedCard({
           <p className={`text-[11px] truncate leading-relaxed ${isBlocked ? 'text-muted-foreground/35' : 'text-muted-foreground/50'}`}>{item.intent}</p>
           <StatusDot status={item.status} />
         </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function PendingCard({
+  item,
+  onApprove,
+  onDecline,
+}: {
+  item: FeedItem;
+  onApprove: (txHash?: string) => void;
+  onDecline: () => void;
+}) {
+  const { address, isConnected } = useAccount();
+  const { connectors, connect } = useConnect();
+  const [isApproving, setIsApproving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmedHash, setConfirmedHash] = useState<string | null>(null);
+
+  const { writeContractAsync } = useWriteContract();
+
+  const handleGrantPermission = async () => {
+    if (!isConnected || !address) return;
+
+    setIsApproving(true);
+    setError(null);
+
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const allowanceRaw = BigInt(Math.round(item.amount * 1_000_000));
+
+      const txHash = await writeContractAsync({
+        address: SPEND_PERMISSION_MANAGER_ADDRESS,
+        abi: SPEND_PERMISSION_MANAGER_ABI,
+        functionName: 'approve',
+        args: [
+          {
+            account: address,
+            spender: SCOUT_SPENDER_ADDRESS,
+            token: USDC_BASE_SEPOLIA,
+            allowance: allowanceRaw,
+            period: 86400,
+            start: now,
+            end: now + 3600,
+            salt: BigInt(Date.now()),
+            extraData: '0x' as `0x${string}`,
+          },
+        ],
+      });
+
+      const receipt = await waitForTransactionReceipt(walletConfig, { hash: txHash });
+
+      if (receipt.status === 'reverted') {
+        setError('Transaction reverted onchain');
+        return;
+      }
+
+      setConfirmedHash(txHash);
+      onApprove(txHash);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Transaction failed';
+      if (message.includes('User rejected') || message.includes('user rejected')) {
+        setError('Transaction rejected');
+      } else {
+        setError(message.length > 80 ? message.slice(0, 80) + '…' : message);
+      }
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const isBusy = isApproving;
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ duration: 0.45, type: "spring", bounce: 0.2 }}
+      data-testid={`card-feed-${item.id}`}
+      className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.05] to-transparent p-5 my-2"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/[0.03] via-transparent to-transparent" />
+      <div className="relative">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="px-2 py-0.5 rounded-md bg-amber-500/12 border border-amber-500/15">
+            <span className="text-[9px] font-semibold text-amber-400/90 uppercase tracking-[0.1em]">Spend Permission Request</span>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-4">
+          <AvatarIcon initial={item.merchantInitial} colorClass={item.merchantColor} size="lg" />
+          <div className="flex-1 min-w-0 pt-0.5">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="text-[17px] font-semibold text-foreground leading-tight">{item.merchant}</h3>
+              <div className="text-right shrink-0 ml-3">
+                <span className="text-[22px] font-bold tracking-tight">{item.amountStr}</span>
+                <span className="text-[12px] font-medium text-muted-foreground/50">/mo</span>
+              </div>
+            </div>
+            <p className="text-[12px] text-muted-foreground/60 leading-relaxed pr-2">
+              Scout wants recurring access to real-time market data
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            className="mt-3 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20"
+          >
+            <p className="text-[11px] text-rose-400">{error}</p>
+          </motion.div>
+        )}
+
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="flex flex-col gap-3 mt-5 pt-4 border-t border-white/[0.06]"
+        >
+          {!isConnected ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const connector = connectors[0];
+                if (connector) connect({ connector });
+              }}
+              className="w-full py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
+            >
+              Connect wallet to grant
+            </button>
+          ) : (
+            <div className="flex gap-3">
+              <button 
+                data-testid={`button-decline-${item.id}`}
+                disabled={isBusy}
+                onClick={(e) => { e.stopPropagation(); onDecline(); }}
+                className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-foreground/70 bg-white/[0.06] hover:bg-white/[0.09] active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
+              >
+                Decline
+              </button>
+              <button 
+                data-testid={`button-approve-${item.id}`}
+                disabled={isBusy}
+                onClick={(e) => { e.stopPropagation(); handleGrantPermission(); }}
+                className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2"
+              >
+                {isBusy ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Approving…
+                  </>
+                ) : (
+                  'Grant Permission'
+                )}
+              </button>
+            </div>
+          )}
+
+          {confirmedHash && (
+            <motion.a
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              href={`https://sepolia.basescan.org/tx/${confirmedHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center justify-center gap-1.5 text-[11px] font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors"
+            >
+              <ExternalLink size={10} />
+              View on Basescan
+            </motion.a>
+          )}
+        </motion.div>
       </div>
     </motion.div>
   );
