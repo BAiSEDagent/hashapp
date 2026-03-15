@@ -4,6 +4,68 @@ Track meaningful product, UX, architecture, and scope decisions here.
 
 ---
 
+## 2026-03-15 — Repo becomes the single source of truth
+
+### Decision
+Move from Replit-as-primary to repo-as-primary. Integrate the Replit truth-pass frontend under `app/`, integrate proof scripts under `proof/`, and drive all engineering from `integration/truth-pass-clean`.
+
+### Why
+The split-brain problem was creating confusion, risk of drift, and audit ambiguity. One repo with docs/app/proof in clearly separated directories gives every agent a single authoritative location to read from and write to.
+
+### Alternatives considered
+- keep Replit as primary and export manually each time
+- keep three separate repos (docs, app, proof)
+
+### Status
+Active
+
+### Notes
+Branch roles documented in `BRANCH_GUIDE.md`. App status documented in `app/STATUS.md`. Proof artifacts documented in `proof/README.md`.
+
+---
+
+## 2026-03-15 — Replit role becomes scoped-only
+
+### Decision
+Replit is now a scoped execution surface only, not the driver. Narrow tasks only: UI pass → patch export → BAiSED applies to repo. No more full workspace dumps.
+
+### Why
+Full workspace dumps recreate split-brain and are harder to review/integrate than targeted patches.
+
+### Alternatives considered
+- Replit as primary with periodic syncs
+- BAiSED exclusively, no Replit
+
+### Status
+Active
+
+### Notes
+Replit still has read access to the repo and can pull branches. It should return changed files as diffs, not exports.
+
+---
+
+## 2026-03-15 — Grant Permission wiring is the next real milestone
+
+### Decision
+Connect the app's Grant Permission button to the real `SpendPermissionManager.approve()` call via wagmi, then call `approvePending(id, realTxHash)` to surface a real Basescan link.
+
+### Why
+This is the single step that converts Hashapp from a polished prototype with external proof to a product where the UI and the proof are the same system.
+
+### Alternatives considered
+- skip to submission without connecting the UI
+- build more UI features before wiring
+
+### Status
+Pending — next implementation task
+
+### Notes
+Hook points already exist: `approvePending(id, realTxHash?)` in DemoContext, wagmi + Base Sepolia already configured.
+Contract: `0xf85210B21cC50302F477BA56686d2019dC9b67Ad`
+Approval path: direct `approve()` call from the human wallet, not `approveWithSignature`.
+
+---
+
 ## Template
 
 ### Date

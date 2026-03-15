@@ -4,6 +4,74 @@ Track review findings, corrections, and implementation follow-ups here.
 
 ---
 
+## 2026-03-15 — Working product audit (product agent)
+
+### Source
+- Replit product agent full codebase audit
+
+### Findings
+- app was polished prototype with zero real internals
+- all tx hashes were fabricated
+- Basescan links were dead
+- "rules enforced onchain" claim was false
+- Grant Permission was pure React state
+- wallet connection was decorative string
+- dead CTAs throughout
+- page state reset on refresh
+
+### Severity
+- Critical: fake tx hashes / dead proof links
+- Critical: false onchain enforcement claim
+- High: no wallet connection
+- High: dead CTAs in trust product
+- Medium: no persistence
+
+### Action taken
+- truth-pass patch applied:
+  - fake tx hashes removed
+  - proof links conditioned on real tx hash
+  - "rules enforced onchain" claim removed
+  - wagmi wallet connection added (Base Sepolia)
+  - dead CTAs removed
+  - localStorage persistence added
+  - `approvePending(id, realTxHash?)` hook designed for real tx integration
+
+### Status
+Partially fixed — core trust signals are now honest; Grant Permission still demo-only
+
+### Notes
+Integration gap documented in `app/STATUS.md`.
+
+---
+
+## 2026-03-15 — Repo integration audit
+
+### Source
+- BAiSED manual review of `frontend/truth-pass` branch vs local build
+
+### Findings
+- Replit export branch was full Replit workspace, not a clean standalone app
+- pnpm-workspace.yaml had Darwin-hostile binary overrides
+- Vite config hard-required `PORT` and `BASE_PATH` env vars
+- app could not build locally outside Replit environment
+
+### Severity
+- High: app not runnable outside Replit
+
+### Action taken
+- Darwin binary exclusions removed from pnpm-workspace.yaml
+- Vite config normalized with sensible defaults
+- app extracted to `app/` under main repo
+- typecheck, build, gitleaks, pnpm audit all validated clean
+
+### Status
+Fixed — `integration/truth-pass-clean` typechecks and builds on macOS ARM
+
+### Notes
+Commit `52ab78f`. Proof scripts added in `proof/` in commit `a4637049`.
+
+---
+
 ## Template
 
 ### Date
