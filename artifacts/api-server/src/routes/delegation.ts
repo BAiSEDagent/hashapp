@@ -59,13 +59,16 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
 
-    const sessionKey = process.env.SCOUT_PRIVATE_KEY;
-    if (!sessionKey) {
+    const rawKey = process.env.SCOUT_PRIVATE_KEY?.trim();
+    if (!rawKey) {
       res.status(500).json({ error: 'SCOUT_PRIVATE_KEY not configured' });
       return;
     }
 
-    const sessionAccount = privateKeyToAccount(sessionKey as `0x${string}`);
+    const sessionKey: `0x${string}` = rawKey.startsWith('0x')
+      ? (rawKey as `0x${string}`)
+      : (`0x${rawKey}` as `0x${string}`);
+    const sessionAccount = privateKeyToAccount(sessionKey);
 
     const walletClient = createWalletClient({
       account: sessionAccount,
