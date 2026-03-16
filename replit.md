@@ -80,7 +80,7 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Delegation route: `src/routes/delegation.ts` — `POST /api/delegation/spend` executes ERC-7710 delegated USDC transfers server-side using `SCOUT_SESSION_PRIVATE_KEY`. Enforces token allowlist (USDC only), delegation manager address check, amount bounds ($0–$1000), and address format validation.
+- Delegation route: `src/routes/delegation.ts` — `POST /api/delegation/spend` executes ERC-7710 delegated USDC transfers server-side using `SCOUT_PRIVATE_KEY`. Enforces token allowlist (USDC only), delegation manager address check, amount bounds ($0–$1000), and address format validation.
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
@@ -114,6 +114,18 @@ Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used b
 ### `lib/api-client-react` (`@workspace/api-client-react`)
 
 Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
+
+## Branch Policy
+
+| Branch | Role | Rule |
+|--------|------|------|
+| `integration/truth-pass-clean` | Stable fallback shell + proof assets | No new delegation/execution-rail work |
+| `integration/metamask-delegation-poc` | Active MetaMask delegation pivot | All new ERC-7715/7710/Smart Accounts work goes here |
+| `frontend/truth-pass` | Raw donor/archive only | No new work; surgical extraction source only |
+
+- Never land new MetaMask pivot work on `frontend/truth-pass`
+- Never land new execution-rail work on `integration/truth-pass-clean`
+- If progress is accidentally made on the wrong branch, stop and port files to `integration/metamask-delegation-poc` immediately
 
 ### `scripts` (`@workspace/scripts`)
 
