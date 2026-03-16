@@ -99,7 +99,9 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     console.error('[DelegationSpend] Error code:', err?.code);
     console.error('[DelegationSpend] Error data:', JSON.stringify(err?.data));
     console.error('[DelegationSpend] Error details:', err?.details);
-    console.error('[DelegationSpend] Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    try {
+      console.error('[DelegationSpend] Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    } catch { console.error('[DelegationSpend] Full error (non-serializable):', err); }
     res.status(500).json({ error: message });
   }
 });
