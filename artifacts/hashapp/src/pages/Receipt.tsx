@@ -1,8 +1,12 @@
 import { useRoute, Link } from 'wouter';
 import { X, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useTransactionReceipt, useBlock } from 'wagmi';
+import { useTransactionReceipt, useBlock, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
+import {
+  SPEND_PERMISSION_MANAGER_ADDRESS,
+  SPEND_PERMISSION_MANAGER_ABI,
+} from '@/config/spendPermission';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
@@ -27,11 +31,34 @@ export default function Receipt() {
     query: { enabled: !!txReceipt?.blockNumber },
   });
 
+  const linkedPerm = item ? spendPermissions.find(p => p.txHash && p.txHash === item.txHash) : undefined;
+  const permStruct = linkedPerm?.permissionStruct;
+
+  const { data: isApprovedLive } = useReadContract({
+    address: SPEND_PERMISSION_MANAGER_ADDRESS,
+    abi: SPEND_PERMISSION_MANAGER_ABI,
+    functionName: 'isApproved',
+    args: permStruct ? [{
+      account: permStruct.account,
+      spender: permStruct.spender,
+      token: permStruct.token,
+      allowance: BigInt(permStruct.allowance),
+      period: permStruct.period,
+      start: permStruct.start,
+      end: permStruct.end,
+      salt: BigInt(permStruct.salt),
+      extraData: permStruct.extraData,
+    }] : undefined,
+    chainId: 84532,
+    query: { enabled: !!permStruct && !!item?.isReal },
+  });
+
   if (!item) return <div className="p-8 text-center mt-20 text-muted-foreground">Receipt not found</div>;
 
   const isBlocked = item.status === 'BLOCKED' || item.status === 'DECLINED';
   const hasRealProof = item.isReal && item.txHash;
   const isApprovedOrAuto = item.status === 'APPROVED' || item.status === 'AUTO_APPROVED';
+  const onchainVerified = isApprovedLive ?? item.onchainVerified;
 
   const confirmedAt = block?.timestamp
     ? new Date(Number(block.timestamp) * 1000).toLocaleString()
@@ -83,7 +110,7 @@ export default function Receipt() {
               <TruthBadge
                 type={
                   hasRealProof
-                    ? (item.onchainVerified === true ? 'onchain' : 'pending')
+                    ? (onchainVerified === true ? 'onchain' : 'pending')
                     : 'demo'
                 }
                 txHash={item.txHash}

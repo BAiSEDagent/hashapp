@@ -42,7 +42,7 @@ export default function Activity() {
           <p className="text-[11px] text-muted-foreground/50 mt-0.5 font-mono tracking-wide">scout.base.eth</p>
         </div>
         <div className="relative">
-          <AgentAvatar size="md" />
+          <AgentAvatar size="sm" />
           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
         </div>
       </header>
