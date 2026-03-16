@@ -1,13 +1,15 @@
 import { createConfig, http } from 'wagmi';
 import { baseSepolia } from 'wagmi/chains';
 import { injected, coinbaseWallet } from 'wagmi/connectors';
+import { USE_METAMASK_DELEGATION } from '@/config/delegation';
+
+const connectors = USE_METAMASK_DELEGATION
+  ? [injected()]
+  : [injected(), coinbaseWallet({ appName: 'Hashapp' })];
 
 export const walletConfig = createConfig({
   chains: [baseSepolia],
-  connectors: [
-    injected(),
-    coinbaseWallet({ appName: 'Hashapp' }),
-  ],
+  connectors,
   transports: {
     [baseSepolia.id]: http(),
   },

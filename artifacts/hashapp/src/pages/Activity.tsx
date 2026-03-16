@@ -5,6 +5,8 @@ import { useLocation } from 'wouter';
 import { useAccount, useWriteContract, useConnect } from 'wagmi';
 import { waitForTransactionReceipt, readContract } from 'wagmi/actions';
 import { walletConfig } from '@/config/wallet';
+import { USE_METAMASK_DELEGATION } from '@/config/delegation';
+import { requestDelegatedPermission } from '@/lib/metamaskPermissions';
 import { useDemo, type FeedItem, type StatusType } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { AgentAvatar } from '@/components/AgentAvatar';
@@ -116,6 +118,10 @@ function FeedCard({
     realTxHash?: string,
     permissionStruct?: import('@/context/DemoContext').SpendPermission['permissionStruct'],
     onchainVerified?: boolean,
+    delegationFields?: {
+      permissionsContext: `0x${string}`;
+      delegationManager: `0x${string}`;
+    },
   ) => void;
   onDecline: () => void;
   onClick: () => void;
@@ -130,7 +136,9 @@ function FeedCard({
 
   let badgeType: 'onchain' | 'demo' | 'pending' | null = null;
   if (isApprovedOrAuto) {
-    if (item.isReal && item.txHash) {
+    if (item.isDelegation) {
+      badgeType = 'onchain';
+    } else if (item.isReal && item.txHash) {
       badgeType = item.onchainVerified === true ? 'onchain' : 'pending';
     } else {
       badgeType = 'demo';
@@ -185,6 +193,10 @@ function PendingCard({
     realTxHash?: string,
     permissionStruct?: import('@/context/DemoContext').SpendPermission['permissionStruct'],
     onchainVerified?: boolean,
+    delegationFields?: {
+      permissionsContext: `0x${string}`;
+      delegationManager: `0x${string}`;
+    },
   ) => void;
   onDecline: () => void;
 }) {
@@ -196,7 +208,32 @@ function PendingCard({
 
   const { writeContractAsync } = useWriteContract();
 
-  const handleGrantPermission = async () => {
+  const handleGrantDelegation = async () => {
+    if (!isConnected) return;
+
+    setIsApproving(true);
+    setError(null);
+
+    try {
+      const result = await requestDelegatedPermission(item.amount);
+
+      onApprove(item.id, undefined, undefined, true, {
+        permissionsContext: result.permissionsContext,
+        delegationManager: result.delegationManager,
+      });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Delegation request failed';
+      if (message.includes('User rejected') || message.includes('user rejected')) {
+        setError('Request rejected');
+      } else {
+        setError(message.length > 80 ? message.slice(0, 80) + '…' : message);
+      }
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleGrantPermissionCoinbase = async () => {
     if (!isConnected || !address) return;
 
     setIsApproving(true);
@@ -269,7 +306,13 @@ function PendingCard({
     }
   };
 
+  const handleGrantPermission = USE_METAMASK_DELEGATION
+    ? handleGrantDelegation
+    : handleGrantPermissionCoinbase;
+
   const isBusy = isApproving;
+
+  const buttonLabel = USE_METAMASK_DELEGATION ? 'Grant Delegation' : 'Grant Permission';
 
   return (
     <motion.div
@@ -285,7 +328,9 @@ function PendingCard({
       <div className="relative">
         <div className="flex items-center gap-2 mb-4">
           <div className="px-2 py-0.5 rounded-md bg-amber-500/12 border border-amber-500/15">
-            <span className="text-[9px] font-semibold text-amber-400/90 uppercase tracking-[0.1em]">Spend Permission Request</span>
+            <span className="text-[9px] font-semibold text-amber-400/90 uppercase tracking-[0.1em]">
+              {USE_METAMASK_DELEGATION ? 'Delegation Request' : 'Spend Permission Request'}
+            </span>
           </div>
           <TruthBadge type="pending" />
         </div>
@@ -301,7 +346,9 @@ function PendingCard({
               </div>
             </div>
             <p className="text-[12px] text-muted-foreground/60 leading-relaxed pr-2">
-              Scout wants recurring access to real-time market data
+              {USE_METAMASK_DELEGATION
+                ? 'Scout wants delegated periodic USDC authority for real-time market data'
+                : 'Scout wants recurring access to real-time market data'}
             </p>
           </div>
         </div>
@@ -352,10 +399,10 @@ function PendingCard({
                 {isBusy ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    Approving…
+                    {USE_METAMASK_DELEGATION ? 'Requesting…' : 'Approving…'}
                   </>
                 ) : (
-                  'Grant Permission'
+                  buttonLabel
                 )}
               </button>
             </div>

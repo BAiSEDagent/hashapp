@@ -64,7 +64,14 @@ Hashapp — consumer-grade dark premium spending app for AI agents. Demo-only fr
 - **Honesty rules**: No fake tx hashes in hardcoded feed. Receipt shows "Demo transaction · no onchain proof" for demo items. Basescan links only appear when `isReal && txHash`. Rules footer: "Rules managed by Hashapp" (not "enforced onchain"). Agent footer: "ERC-8004 · Base Sepolia" (no fake token ID). Dead CTAs removed (no "Increase limit", "Adjust budget", "Pause Scout").
 - **Persistence**: localStorage (key: `hashapp_demo_state`, version 2) persists feed, rules, spendPermissions, and stage across refreshes.
 - **Key Design**: Intent-aware language ("Scout bought research credits..."), plain-English rules, honest onchain references only when backed by real proof, spend permission terminology for recurring charges
-- **Dependencies**: react, framer-motion, wouter, lucide-react, tailwindcss, clsx, tailwind-merge, wagmi, viem
+- **MetaMask Delegation Pivot**: Feature-gated behind `VITE_USE_METAMASK_DELEGATION=true`. Replaces Coinbase SpendPermissionManager with MetaMask Smart Accounts Kit + ERC-7715/ERC-7710 Delegation Framework. Key files:
+  - `src/config/delegation.ts` — feature flag, chain, USDC address, DelegationManager address, session account address
+  - `src/lib/metamaskPermissions.ts` — ERC-7715 `requestExecutionPermissions` wrapper
+  - `src/lib/sessionAccount.ts` — Scout session account from `VITE_SCOUT_SESSION_ADDRESS` env var
+  - `src/lib/delegationSpend.ts` — POSTs to `/api/delegation/spend` for server-side ERC-7710 redemption
+  - `src/config/wallet.ts` — feature-gated connectors (delegation: injected only; fallback: coinbaseWallet)
+  - All pages (Activity, Money, Agent, Receipt) are feature-gated for delegation path
+- **Dependencies**: react, framer-motion, wouter, lucide-react, tailwindcss, clsx, tailwind-merge, wagmi, viem, @metamask/smart-accounts-kit
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
@@ -73,6 +80,7 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Delegation route: `src/routes/delegation.ts` — `POST /api/delegation/spend` executes ERC-7710 delegated USDC transfers server-side using `SCOUT_SESSION_PRIVATE_KEY`. Enforces token allowlist (USDC only), delegation manager address check, amount bounds ($0–$1000), and address format validation.
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)

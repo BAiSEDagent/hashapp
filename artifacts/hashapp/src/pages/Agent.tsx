@@ -5,13 +5,16 @@ import { useDemo } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
+import { USE_METAMASK_DELEGATION } from '@/config/delegation';
+import { SCOUT_SESSION_ADDRESS } from '@/config/delegation';
 import {
   SCOUT_SPENDER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ABI,
 } from '@/config/spendPermission';
 
-const SCOUT_ADDRESS_SHORT = `${SCOUT_SPENDER_ADDRESS.slice(0, 6)}...${SCOUT_SPENDER_ADDRESS.slice(-4)}`;
+const scoutAddress = USE_METAMASK_DELEGATION ? SCOUT_SESSION_ADDRESS : SCOUT_SPENDER_ADDRESS;
+const SCOUT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
 
 export default function Agent() {
   const { rules, feed, spendPermissions } = useDemo();
@@ -76,6 +79,10 @@ export default function Agent() {
               valueColor={isConnected ? undefined : 'text-muted-foreground/40'}
             />
             <StateRow label="Settlement" value="USDC on Base" />
+            <StateRow
+              label="Authority model"
+              value={USE_METAMASK_DELEGATION ? 'MetaMask Delegation (ERC-7710)' : 'SpendPermissionManager'}
+            />
             <div className="flex items-center justify-between py-0.5">
               <span className="text-[12px] text-muted-foreground/40">Spent this month</span>
               <div className="flex items-center gap-2">
@@ -122,7 +129,7 @@ export default function Agent() {
 
       <div className="mt-auto pt-10 text-center pb-4">
         <p className="text-[10px] text-muted-foreground/20 font-medium tracking-widest uppercase">
-          ERC-8004 · Base Sepolia
+          {USE_METAMASK_DELEGATION ? 'ERC-7710 · ERC-7715 · ' : 'ERC-8004 · '}Base Sepolia
         </p>
       </div>
     </div>
@@ -132,6 +139,7 @@ export default function Agent() {
 function AgentPermissionRow({ perm }: { perm: import('@/context/DemoContext').SpendPermission }) {
   const cadenceLabel = { daily: '/day', weekly: '/wk', monthly: '/mo' };
   const permStruct = perm.permissionStruct;
+  const isDelegation = USE_METAMASK_DELEGATION && perm.isDelegation;
 
   const { data: isApprovedOnchain } = useReadContract({
     address: SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -149,11 +157,13 @@ function AgentPermissionRow({ perm }: { perm: import('@/context/DemoContext').Sp
       extraData: permStruct.extraData,
     }] : undefined,
     chainId: 84532,
-    query: { enabled: !!permStruct && !!perm.isReal },
+    query: { enabled: !isDelegation && !!permStruct && !!perm.isReal },
   });
 
   let badgeType: 'onchain' | 'demo' | 'pending';
-  if (perm.isReal && perm.txHash) {
+  if (isDelegation && perm.permissionsContext) {
+    badgeType = 'onchain';
+  } else if (perm.isReal && perm.txHash) {
     const verified = isApprovedOnchain ?? perm.onchainVerified;
     badgeType = verified ? 'onchain' : 'pending';
   } else {
@@ -167,6 +177,9 @@ function AgentPermissionRow({ perm }: { perm: import('@/context/DemoContext').Sp
         <span className="text-[13px] font-medium text-foreground">{perm.vendor}</span>
         <div className="flex items-center gap-1.5 mt-0.5">
           <TruthBadge type={badgeType} txHash={perm.txHash} />
+          {isDelegation && (
+            <span className="text-[8px] text-orange-400/60 font-medium uppercase tracking-wider">delegation</span>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">

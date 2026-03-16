@@ -1,11 +1,13 @@
-import React from 'react';
-import { Wallet, Shield, ArrowRight, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { Wallet, Shield, ArrowRight, RefreshCw, Loader2, Zap } from 'lucide-react';
 import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi';
 import { useDemo, type SpendPermission } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
 import { useLocation } from 'wouter';
+import { USE_METAMASK_DELEGATION } from '@/config/delegation';
+import { executeDelegationSpend } from '@/lib/delegationSpend';
 import {
   USDC_BASE_SEPOLIA,
   SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -24,7 +26,7 @@ const ERC20_BALANCE_ABI = [
 ] as const;
 
 export default function Money() {
-  const { feed, rules, spendPermissions, resetDemo } = useDemo();
+  const { feed, rules, spendPermissions, resetDemo, recordDelegationSpend } = useDemo();
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
@@ -147,7 +149,7 @@ export default function Money() {
               </h3>
             </div>
             {activePermissions.map(perm => (
-              <SpendPermissionRow key={perm.id} permission={perm} />
+              <SpendPermissionRow key={perm.id} permission={perm} onSpend={recordDelegationSpend} />
             ))}
           </div>
         )}
@@ -195,12 +197,16 @@ export default function Money() {
 
           {isConnected ? (
             <p className="text-[10px] text-muted-foreground/35 leading-relaxed pl-10">
-              Funds stay in your smart wallet. Scout operates through scoped permissions — Hashapp never takes custody.
+              {USE_METAMASK_DELEGATION
+                ? 'Funds stay in your smart wallet. Scout operates through MetaMask delegated permissions — Hashapp never takes custody.'
+                : 'Funds stay in your smart wallet. Scout operates through scoped permissions — Hashapp never takes custody.'}
             </p>
           ) : (
             <div className="pl-10">
               <p className="text-[10px] text-muted-foreground/35 leading-relaxed mb-3">
-                Connect a wallet to enable real spend permissions on Base. Hashapp never takes custody of your funds.
+                {USE_METAMASK_DELEGATION
+                  ? 'Connect MetaMask to enable delegated spend permissions on Base. Hashapp never takes custody of your funds.'
+                  : 'Connect a wallet to enable real spend permissions on Base. Hashapp never takes custody of your funds.'}
               </p>
               <div className="flex flex-wrap gap-2">
                 {connectors.map((connector) => (
@@ -228,17 +234,20 @@ export default function Money() {
 
       <div className="mt-auto pt-4 text-center pb-4">
         <p className="text-[10px] text-muted-foreground/20 font-medium tracking-widest uppercase">
-          Base Sepolia · Testnet
+          {USE_METAMASK_DELEGATION ? 'MetaMask Delegation · ' : ''}Base Sepolia · Testnet
         </p>
       </div>
     </div>
   );
 }
 
-function SpendPermissionRow({ permission }: { permission: SpendPermission }) {
+function SpendPermissionRow({ permission, onSpend }: { permission: SpendPermission; onSpend: (permissionId: string, txHash: string) => void }) {
   const cadenceLabel = { daily: '/day', weekly: '/wk', monthly: '/mo' };
+  const [isSpending, setIsSpending] = useState(false);
+  const [spendError, setSpendError] = useState<string | null>(null);
 
   const permStruct = permission.permissionStruct;
+  const isDelegation = USE_METAMASK_DELEGATION && permission.isDelegation;
 
   const { data: isApprovedOnchain } = useReadContract({
     address: SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -256,33 +265,78 @@ function SpendPermissionRow({ permission }: { permission: SpendPermission }) {
       extraData: permStruct.extraData,
     }] : undefined,
     chainId: 84532,
-    query: { enabled: !!permStruct && !!permission.isReal },
+    query: { enabled: !isDelegation && !!permStruct && !!permission.isReal },
   });
 
   let badgeType: 'onchain' | 'demo' | 'pending';
-  if (permission.isReal && permission.txHash) {
+  if (isDelegation && permission.permissionsContext) {
+    badgeType = 'onchain';
+  } else if (permission.isReal && permission.txHash) {
     const verified = isApprovedOnchain ?? permission.onchainVerified;
     badgeType = verified ? 'onchain' : 'pending';
   } else {
     badgeType = 'demo';
   }
 
+  const canSpend = isDelegation && permission.permissionsContext && permission.delegationManager;
+
+  const handleSpend = async () => {
+    if (!canSpend || !permission.permissionsContext || !permission.delegationManager) return;
+    setIsSpending(true);
+    setSpendError(null);
+    try {
+      const result = await executeDelegationSpend({
+        permissionsContext: permission.permissionsContext,
+        delegationManager: permission.delegationManager,
+        amountUsdc: 5,
+        recipient: '0x000000000000000000000000000000000000dEaD' as `0x${string}`,
+      });
+      onSpend(permission.id, result.txHash);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Spend failed';
+      setSpendError(msg.length > 60 ? msg.slice(0, 60) + '…' : msg);
+    } finally {
+      setIsSpending(false);
+    }
+  };
+
   return (
-    <div className="flex items-center gap-3.5 p-3 rounded-xl bg-card border border-border/30 hover:border-border/50 transition-colors">
-      <AvatarIcon initial={permission.vendorInitial} colorClass={permission.vendorColor} size="sm" />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold text-foreground">{permission.vendor}</span>
-          <div className={`w-[5px] h-[5px] rounded-full shrink-0 ${permission.state === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+    <div className="flex flex-col gap-2 p-3 rounded-xl bg-card border border-border/30 hover:border-border/50 transition-colors">
+      <div className="flex items-center gap-3.5">
+        <AvatarIcon initial={permission.vendorInitial} colorClass={permission.vendorColor} size="sm" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] font-semibold text-foreground">{permission.vendor}</span>
+            <div className={`w-[5px] h-[5px] rounded-full shrink-0 ${permission.state === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <TruthBadge type={badgeType} txHash={permission.txHash} />
+            {isDelegation && (
+              <span className="text-[8px] text-orange-400/60 font-medium uppercase tracking-wider">delegation</span>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <TruthBadge type={badgeType} txHash={permission.txHash} />
+        <div className="text-right shrink-0">
+          <span className="text-[13px] font-semibold tabular-nums">${permission.amount}</span>
+          <span className="text-[10px] text-muted-foreground/40">{cadenceLabel[permission.cadence]}</span>
         </div>
       </div>
-      <div className="text-right shrink-0">
-        <span className="text-[13px] font-semibold tabular-nums">${permission.amount}</span>
-        <span className="text-[10px] text-muted-foreground/40">{cadenceLabel[permission.cadence]}</span>
-      </div>
+      {canSpend && (
+        <button
+          onClick={handleSpend}
+          disabled={isSpending}
+          className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-[11px] font-semibold bg-orange-500/10 text-orange-400/90 hover:bg-orange-500/15 active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {isSpending ? (
+            <><Loader2 size={11} className="animate-spin" /> Spending…</>
+          ) : (
+            <><Zap size={11} /> Run $5 delegated spend</>
+          )}
+        </button>
+      )}
+      {spendError && (
+        <p className="text-[10px] text-rose-400 px-1">{spendError}</p>
+      )}
     </div>
   );
 }

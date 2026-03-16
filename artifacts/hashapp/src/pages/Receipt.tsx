@@ -3,6 +3,7 @@ import { X, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTransactionReceipt, useBlock, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
+import { USE_METAMASK_DELEGATION } from '@/config/delegation';
 import {
   SPEND_PERMISSION_MANAGER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ABI,
@@ -33,6 +34,7 @@ export default function Receipt() {
 
   const linkedPerm = item ? spendPermissions.find(p => p.txHash && p.txHash === item.txHash) : undefined;
   const permStruct = linkedPerm?.permissionStruct;
+  const isDelegation = USE_METAMASK_DELEGATION && (item?.isDelegation || linkedPerm?.isDelegation);
 
   const { data: isApprovedLive } = useReadContract({
     address: SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -50,7 +52,7 @@ export default function Receipt() {
       extraData: permStruct.extraData,
     }] : undefined,
     chainId: 84532,
-    query: { enabled: !!permStruct && !!item?.isReal },
+    query: { enabled: !isDelegation && !!permStruct && !!item?.isReal },
   });
 
   if (!item) return <div className="p-8 text-center mt-20 text-muted-foreground">Receipt not found</div>;
@@ -58,7 +60,13 @@ export default function Receipt() {
   const isBlocked = item.status === 'BLOCKED' || item.status === 'DECLINED';
   const hasRealProof = item.isReal && item.txHash;
   const isApprovedOrAuto = item.status === 'APPROVED' || item.status === 'AUTO_APPROVED';
-  const onchainVerified = isApprovedLive ?? item.onchainVerified;
+
+  let onchainVerified: boolean | undefined;
+  if (isDelegation) {
+    onchainVerified = true;
+  } else {
+    onchainVerified = isApprovedLive ?? item.onchainVerified;
+  }
 
   const confirmedAt = block?.timestamp
     ? new Date(Number(block.timestamp) * 1000).toLocaleString()
@@ -109,9 +117,11 @@ export default function Receipt() {
             <div className="mb-8">
               <TruthBadge
                 type={
-                  hasRealProof
-                    ? (onchainVerified === true ? 'onchain' : 'pending')
-                    : 'demo'
+                  isDelegation
+                    ? 'onchain'
+                    : hasRealProof
+                      ? (onchainVerified === true ? 'onchain' : 'pending')
+                      : 'demo'
                 }
                 txHash={item.txHash}
               />
@@ -135,6 +145,9 @@ export default function Receipt() {
               label="Approval" 
               value={item.status === 'AUTO_APPROVED' ? 'Auto-approved' : item.status === 'APPROVED' ? 'Human-approved' : item.status === 'BLOCKED' ? 'Blocked by rule' : item.status === 'DECLINED' ? 'Declined' : 'Pending'} 
             />
+            {isDelegation && (
+              <DetailRow label="Authority" value="MetaMask Delegation (ERC-7710)" />
+            )}
             <div className="flex items-center justify-between py-4 border-t border-white/[0.05]">
               <span className="text-[11px] text-muted-foreground/40 font-medium">
                 {isBlocked ? 'Requested by' : 'Authorized by'}
