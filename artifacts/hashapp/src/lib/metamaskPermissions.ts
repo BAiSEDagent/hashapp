@@ -35,26 +35,29 @@ export async function requestDelegatedPermission(
   const now = Math.floor(Date.now() / 1000);
   const periodAmount = parseUnits(amountUsdc.toString(), 6);
 
-  const grantedPermissions = await walletClient.requestExecutionPermissions([
+  const permissionRequest = [
     {
       chainId: DELEGATION_CHAIN.id,
       expiry: now + PERMISSION_EXPIRY_SECONDS,
       signer: {
-        type: 'account',
+        type: 'account' as const,
         data: { address: SCOUT_SESSION_ADDRESS },
       },
       permission: {
-        type: 'erc20-token-periodic',
+        type: 'erc20-token-periodic' as const,
         data: {
           tokenAddress: USDC_BASE_SEPOLIA,
           periodAmount,
           periodDuration: PERMISSION_PERIOD_DURATION,
-          justification: `Scout periodic spend: ${amountUsdc} USDC per day`,
         },
       },
       isAdjustmentAllowed: true,
     },
-  ]);
+  ];
+
+  console.log('[Delegation] requestExecutionPermissions payload:', JSON.stringify(permissionRequest, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+
+  const grantedPermissions = await walletClient.requestExecutionPermissions(permissionRequest);
 
   const firstPermission = grantedPermissions[0];
   if (!firstPermission) {
