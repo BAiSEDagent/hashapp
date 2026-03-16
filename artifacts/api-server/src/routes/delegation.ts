@@ -59,9 +59,9 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
 
-    const sessionKey = process.env.SCOUT_SESSION_PRIVATE_KEY;
+    const sessionKey = process.env.SCOUT_PRIVATE_KEY;
     if (!sessionKey) {
-      res.status(500).json({ error: 'SCOUT_SESSION_PRIVATE_KEY not configured' });
+      res.status(500).json({ error: 'SCOUT_PRIVATE_KEY not configured' });
       return;
     }
 
