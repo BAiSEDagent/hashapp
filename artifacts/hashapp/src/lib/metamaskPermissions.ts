@@ -39,16 +39,14 @@ export async function requestDelegatedPermission(
     {
       chainId: DELEGATION_CHAIN.id,
       expiry: now + PERMISSION_EXPIRY_SECONDS,
-      signer: {
-        type: 'account' as const,
-        data: { address: SCOUT_SESSION_ADDRESS },
-      },
+      to: SCOUT_SESSION_ADDRESS,
       permission: {
         type: 'erc20-token-periodic' as const,
         data: {
           tokenAddress: USDC_BASE_SEPOLIA,
           periodAmount,
           periodDuration: PERMISSION_PERIOD_DURATION,
+          justification: `Delegate ${amountUsdc} USDC periodic spending authority to Scout`,
         },
       },
       isAdjustmentAllowed: true,
@@ -57,23 +55,36 @@ export async function requestDelegatedPermission(
 
   console.log('[Delegation] requestExecutionPermissions payload:', JSON.stringify(permissionRequest, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
 
-  const grantedPermissions = await walletClient.requestExecutionPermissions(permissionRequest);
+  try {
+    const grantedPermissions = await walletClient.requestExecutionPermissions(permissionRequest);
 
-  const firstPermission = grantedPermissions[0];
-  if (!firstPermission) {
-    throw new Error('No permissions returned from wallet');
+    console.log('[Delegation] Granted permissions:', JSON.stringify(grantedPermissions, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+
+    const firstPermission = grantedPermissions[0];
+    if (!firstPermission) {
+      throw new Error('No permissions returned from wallet');
+    }
+
+    const permissionsContext = firstPermission.context as `0x${string}`;
+    const signerMeta = firstPermission.signerMeta;
+    if (!signerMeta) {
+      throw new Error('No signer metadata in granted permission');
+    }
+    const delegationManager = signerMeta.delegationManager as `0x${string}`;
+
+    return {
+      permissionsContext,
+      delegationManager,
+      grantedPermissions,
+    };
+  } catch (err: unknown) {
+    const error = err as Record<string, unknown>;
+    console.error('[Delegation] requestExecutionPermissions FAILED');
+    console.error('[Delegation] Error code:', error?.code);
+    console.error('[Delegation] Error message:', error?.message);
+    console.error('[Delegation] Error data:', error?.data);
+    console.error('[Delegation] Error details:', error?.details);
+    console.error('[Delegation] Full error:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    throw err;
   }
-
-  const permissionsContext = firstPermission.context as `0x${string}`;
-  const signerMeta = firstPermission.signerMeta;
-  if (!signerMeta) {
-    throw new Error('No signer metadata in granted permission');
-  }
-  const delegationManager = signerMeta.delegationManager as `0x${string}`;
-
-  return {
-    permissionsContext,
-    delegationManager,
-    grantedPermissions,
-  };
 }

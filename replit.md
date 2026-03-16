@@ -71,7 +71,7 @@ Hashapp — consumer-grade dark premium spending app for AI agents. Demo-only fr
   - `src/lib/delegationSpend.ts` — POSTs to `/api/delegation/spend` for server-side ERC-7710 redemption
   - `src/config/wallet.ts` — feature-gated connectors (delegation: injected only; fallback: coinbaseWallet)
   - All pages (Activity, Money, Agent, Receipt) are feature-gated for delegation path
-- **Dependencies**: react, framer-motion, wouter, lucide-react, tailwindcss, clsx, tailwind-merge, wagmi, viem, @metamask/smart-accounts-kit
+- **Dependencies**: react, framer-motion, wouter, lucide-react, tailwindcss, clsx, tailwind-merge, wagmi, viem, @metamask/smart-accounts-kit@0.4.0-beta.1
 
 ### `artifacts/api-server` (`@workspace/api-server`)
 
