@@ -87,6 +87,8 @@ interface DemoState {
   rules: Rule[];
   spendPermissions: SpendPermission[];
   stage: 'INITIAL' | 'PENDING_ADDED' | 'APPROVED' | 'RULE_DISABLED' | 'BLOCKED_ADDED';
+  privateReasoningEnabled: boolean;
+  setPrivateReasoningEnabled: (enabled: boolean) => void;
   agentAvatarUrl: string | null;
   setAgentAvatarUrl: (url: string | null) => void;
   approvePending: (
@@ -257,20 +259,21 @@ function loadPersistedState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.version === 7) return parsed;
+      if (parsed.version === 8) return parsed;
     }
   } catch {}
   return null;
 }
 
-function persistState(feed: FeedItem[], rules: Rule[], spendPermissions: SpendPermission[], stage: DemoState['stage']) {
+function persistState(feed: FeedItem[], rules: Rule[], spendPermissions: SpendPermission[], stage: DemoState['stage'], privateReasoningEnabled: boolean) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 7,
+      version: 8,
       feed,
       rules,
       spendPermissions,
       stage,
+      privateReasoningEnabled,
     }));
   } catch {}
 }
@@ -283,6 +286,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [rules, setRules] = useState<Rule[]>(persisted?.rules ?? INITIAL_RULES);
   const [spendPermissions, setSpendPermissions] = useState<SpendPermission[]>(persisted?.spendPermissions ?? INITIAL_SPEND_PERMISSIONS);
   const [stage, setStage] = useState<DemoState['stage']>(persisted?.stage ?? 'INITIAL');
+  const [privateReasoningEnabled, setPrivateReasoningEnabled] = useState<boolean>(persisted?.privateReasoningEnabled ?? true);
 
   const [agentAvatarUrl, setAgentAvatarUrlState] = useState<string | null>(() => {
     try {
@@ -304,8 +308,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    persistState(feed, rules, spendPermissions, stage);
-  }, [feed, rules, spendPermissions, stage]);
+    persistState(feed, rules, spendPermissions, stage, privateReasoningEnabled);
+  }, [feed, rules, spendPermissions, stage, privateReasoningEnabled]);
 
   useEffect(() => {
     if (stage !== 'INITIAL') return;
@@ -595,10 +599,11 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setRules(INITIAL_RULES);
     setSpendPermissions(INITIAL_SPEND_PERMISSIONS);
     setStage('INITIAL');
+    setPrivateReasoningEnabled(true);
   }, []);
 
   return (
-    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, agentAvatarUrl, setAgentAvatarUrl, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
+    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
       {children}
     </DemoContext.Provider>
   );

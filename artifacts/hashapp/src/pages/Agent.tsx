@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Eye } from 'lucide-react';
+import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Eye, ChevronDown } from 'lucide-react';
 import { useAccount, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
@@ -149,7 +149,7 @@ export default function Agent() {
           </div>
         </div>
 
-        <ReasoningPrivacyCard feed={feed} />
+        <ReasoningPrivacyCard />
 
         {activePermissions.length > 0 && (
           <div className="bg-card rounded-2xl p-5 border border-border/30">
@@ -269,7 +269,10 @@ function AgentPermissionRow({ perm }: { perm: import('@/context/DemoContext').Sp
   );
 }
 
-function ReasoningPrivacyCard({ feed }: { feed: import('@/context/DemoContext').FeedItem[] }) {
+function ReasoningPrivacyCard() {
+  const { feed, privateReasoningEnabled, setPrivateReasoningEnabled } = useDemo();
+  const [expanded, setExpanded] = useState(false);
+
   const lastAnalysis = useMemo(() => {
     const veniceItem = feed.find(i => i.privateReasoningUsed);
     if (!veniceItem) return null;
@@ -279,23 +282,49 @@ function ReasoningPrivacyCard({ feed }: { feed: import('@/context/DemoContext').
   }, [feed]);
 
   return (
-    <div className="bg-card rounded-2xl p-5 border border-border/30">
-      <div className="flex items-center gap-2 mb-4">
-        <Eye size={14} className="text-violet-400/60" />
-        <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Reasoning & Privacy</span>
+    <div className="bg-card rounded-2xl border border-border/30 overflow-hidden">
+      <div className="p-5 pb-0">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Eye size={14} className="text-violet-400/60" />
+            <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Reasoning & Privacy</span>
+          </div>
+          <button
+            onClick={() => setPrivateReasoningEnabled(!privateReasoningEnabled)}
+            className={`relative w-[36px] h-[20px] rounded-full transition-colors duration-200 ${privateReasoningEnabled ? 'bg-emerald-500/80' : 'bg-zinc-600/60'}`}
+          >
+            <div className={`absolute top-[2px] w-[16px] h-[16px] rounded-full bg-white shadow-sm transition-transform duration-200 ${privateReasoningEnabled ? 'translate-x-[18px]' : 'translate-x-[2px]'}`} />
+          </button>
+        </div>
+
+        <p className={`text-[11px] font-medium mb-3 ${privateReasoningEnabled ? 'text-emerald-400/80' : 'text-muted-foreground/40'}`}>
+          {privateReasoningEnabled ? 'Private review enabled' : 'Private review disabled'}
+        </p>
       </div>
-      <div className="space-y-3">
-        <StateRow label="Private review" value="On" valueColor="text-emerald-400" />
-        <StateRow label="Provider" value="Venice" />
-        <StateRow label="Inputs allowed" value="Text" />
-        <StateRow label="Disclosure policy" value="Summary only" />
-        {lastAnalysis && (
-          <StateRow label="Last private analysis" value={lastAnalysis} />
-        )}
+
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-5 py-3 border-t border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+      >
+        <span className="text-[10px] text-muted-foreground/30 font-medium">Details</span>
+        <ChevronDown size={12} className={`text-muted-foreground/30 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      <div className={`overflow-hidden transition-all duration-200 ease-in-out ${expanded ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="px-5 pb-5 space-y-3">
+          <StateRow label="Provider" value="Venice" />
+          <StateRow label="Inputs allowed" value="Text" />
+          <StateRow label="Disclosure policy" value="Summary only" />
+          {lastAnalysis && (
+            <StateRow label="Last private analysis" value={lastAnalysis} />
+          )}
+          <p className="text-[10px] text-muted-foreground/30 mt-2 leading-relaxed">
+            {privateReasoningEnabled
+              ? 'Venice reasoning may inform actions while keeping raw inputs private.'
+              : 'Actions will not use Venice private reasoning.'}
+          </p>
+        </div>
       </div>
-      <p className="text-[10px] text-muted-foreground/30 mt-4 leading-relaxed">
-        Private reasoning can inform actions without exposing raw inputs publicly.
-      </p>
     </div>
   );
 }
