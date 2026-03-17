@@ -1,23 +1,21 @@
-# Hashapp Design
+# Hashapp
 
-Private concept repo for Hashapp — a consumer-grade spending app for AI agents.
+Hashapp is a BYOA money app for agents — a consumer-grade control, proof, and receipt layer for agentic spending.
 
 ## Purpose
 This repo is for:
-- product thinking
+- product truth
 - architecture
-- UX direction
-- partner strategy
-- scope decisions
+- proof framing
+- partner-track strategy
 - demo planning for Synthesis
-
-This is **not** the build repo.
+- integrated app direction
 
 ## Product Thesis
-Hashapp is a beautiful app where humans fund agents, set spending rules, approve or auto-approve purchases, and verify what agents bought through clean receipts and proofs.
+Hashapp lets humans link agents, set bounded authority, approve or auto-approve actions, and verify what those agents did through clear receipts and onchain proof.
 
 ## Product Positioning
-Hashapp is not just an agent wallet manager. It is the spending app for AI agents — a consumer-grade interface for funding, approving, monitoring, and understanding agent purchases.
+Hashapp is not a generic wallet manager and not a generic swap app. It is the money app for AI agents — a consumer-grade interface for bounded authority, funding, approvals, monitoring, and proof.
 
 ## Core Problem
 People can let agents spend money, but they still lack a simple, trustworthy interface to:
@@ -43,5 +41,14 @@ Research agent.
 - activity feed with readable receipts
 - human control over autonomous spending
 
+## Repo structure
+- `/` — only the product-facing and proof-critical entry points
+- `/docs/product` — product truth, UX, policy, flows, onboarding
+- `/docs/proof` — proof, audit, and demo framing
+- `/docs/ops` — Replit handoff, execution notes, polish checklist
+- `/docs/strategy` — roadmap, backlog, partner strategy
+- `/partner-tracks` — partner-specific narratives and submission framing
+- `/app` — integrated app workspace when/if included
+
 ## Near-Term Goal
-Design the strongest possible Synthesis submission before starting implementation in a separate Hashapp repo.
+Make the Synthesis submission look like one coherent product repo, not a scratchpad.
