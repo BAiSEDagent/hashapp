@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Info } from 'lucide-react';
 
 export default function Rules() {
-  const { rules, toggleRule } = useDemo();
+  const { rules, toggleRule, connectedAgent } = useDemo();
+  const agentName = connectedAgent?.name ?? 'your agent';
   const [toast, setToast] = useState<string | null>(null);
 
   const activeCount = rules.filter(r => r.enabled).length;
@@ -26,7 +27,7 @@ export default function Rules() {
         </div>
         <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1.5">
           <ShieldCheck size={13} className="text-primary/60" />
-          Spending constraints for Scout
+          Spending constraints for {agentName}
         </p>
       </header>
 
@@ -34,7 +35,7 @@ export default function Rules() {
         <div className="bg-primary/[0.04] border border-primary/[0.07] rounded-xl p-4 flex gap-3">
           <Info className="text-primary/50 shrink-0 mt-0.5" size={14} />
           <p className="text-[11px] text-primary/50 leading-relaxed">
-            Scout operates autonomously within these boundaries. Purchases that violate active rules require your approval or are blocked automatically.
+            {agentName} operates autonomously within these boundaries. Purchases that violate active rules require your approval or are blocked automatically.
           </p>
         </div>
       </div>

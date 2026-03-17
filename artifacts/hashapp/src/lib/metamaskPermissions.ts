@@ -48,7 +48,7 @@ export async function requestDelegatedPermission(
           tokenAddress: USDC_BASE_SEPOLIA,
           periodAmount,
           periodDuration: PERMISSION_PERIOD_DURATION,
-          justification: `Delegate ${amountUsdc} USDC periodic spending authority to Scout`,
+          justification: `Delegate ${amountUsdc} USDC periodic spending authority to agent`,
         },
       },
       isAdjustmentAllowed: true,

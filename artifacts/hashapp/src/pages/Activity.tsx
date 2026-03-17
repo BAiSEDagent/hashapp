@@ -28,7 +28,7 @@ const TRUSTED_DESTINATIONS = [
 ];
 
 export default function Activity() {
-  const { feed, approvePending, declinePending } = useDemo();
+  const { feed, approvePending, declinePending, connectedAgent } = useDemo();
   const [, setLocation] = useLocation();
 
   const groupedFeed = feed.reduce((acc, item) => {
@@ -42,7 +42,7 @@ export default function Activity() {
       <header className="px-6 pt-12 pb-5 flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-xl z-10">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight">Activity</h1>
-          <p className="text-[11px] text-muted-foreground/50 mt-0.5 font-mono tracking-wide">scout.base.eth</p>
+          <p className="text-[11px] text-muted-foreground/50 mt-0.5 font-mono tracking-wide">{connectedAgent?.address ?? 'No agent connected'}</p>
         </div>
         <div className="relative">
           <AgentAvatar size="sm" />
@@ -231,6 +231,7 @@ function PendingCard({
   ) => void;
   onDecline: () => void;
 }) {
+  const { connectedAgent } = useDemo();
   const { address, isConnected } = useAccount();
   const { connectors, connect } = useConnect();
   const { data: walletClient } = useWalletClient();
@@ -387,8 +388,8 @@ function PendingCard({
             </div>
             <p className="text-[12px] text-muted-foreground/60 leading-relaxed pr-2">
               {USE_METAMASK_DELEGATION
-                ? 'Scout wants delegated periodic USDC authority for real-time market data'
-                : 'Scout wants recurring access to real-time market data'}
+                ? `${connectedAgent?.name ?? 'Agent'} wants delegated periodic USDC authority for real-time market data`
+                : `${connectedAgent?.name ?? 'Agent'} wants recurring access to real-time market data`}
             </p>
           </div>
         </div>

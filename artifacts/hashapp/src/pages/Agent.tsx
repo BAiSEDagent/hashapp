@@ -1,55 +1,30 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Eye, ChevronDown, Bot, Pencil, Unplug, X } from 'lucide-react';
+import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Eye, ChevronDown, X, Bot, Pencil, Unplug } from 'lucide-react';
 import { useAccount, useReadContract } from 'wagmi';
-import { useDemo, type ConnectedAgent } from '@/context/DemoContext';
+import { useDemo } from '@/context/DemoContext';
+import type { ConnectedAgent } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
 import { USE_METAMASK_DELEGATION } from '@/config/delegation';
-import { SCOUT_SESSION_ADDRESS } from '@/config/delegation';
 import {
-  SCOUT_SPENDER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ABI,
 } from '@/config/spendPermission';
 
-const scoutAddress = USE_METAMASK_DELEGATION ? SCOUT_SESSION_ADDRESS : SCOUT_SPENDER_ADDRESS;
-const SCOUT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
-
 export default function Agent() {
-  const { connectedAgent, connectAgent, updateAgent, disconnectAgent } = useDemo();
-  const [showSheet, setShowSheet] = useState(false);
+  const { connectedAgent, disconnectAgent } = useDemo();
+  const [showConnectSheet, setShowConnectSheet] = useState(false);
   const [editMode, setEditMode] = useState(false);
-
-  const handleConnect = (agent: ConnectedAgent) => {
-    connectAgent(agent);
-    setShowSheet(false);
-    setEditMode(false);
-  };
-
-  const handleUpdate = (agent: ConnectedAgent) => {
-    updateAgent(agent);
-    setShowSheet(false);
-    setEditMode(false);
-  };
-
-  const handleEdit = () => {
-    setEditMode(true);
-    setShowSheet(true);
-  };
-
-  const handleDisconnect = () => {
-    disconnectAgent();
-  };
 
   if (!connectedAgent) {
     return (
       <>
-        <EmptyState onConnect={() => { setEditMode(false); setShowSheet(true); }} />
-        {showSheet && (
-          <ConnectionSheet
-            onSubmit={handleConnect}
-            onClose={() => setShowSheet(false)}
+        <AgentEmptyState onConnect={() => { setEditMode(false); setShowConnectSheet(true); }} />
+        {showConnectSheet && (
+          <ConnectAgentSheet
+            onClose={() => setShowConnectSheet(false)}
+            initialValues={null}
           />
         )}
       </>
@@ -58,68 +33,87 @@ export default function Agent() {
 
   return (
     <>
-      <ActiveState
-        agent={connectedAgent}
-        onEdit={handleEdit}
-        onDisconnect={handleDisconnect}
+      <AgentActiveState
+        onEdit={() => { setEditMode(true); setShowConnectSheet(true); }}
+        onDisconnect={disconnectAgent}
       />
-      {showSheet && (
-        <ConnectionSheet
-          initialValues={editMode ? connectedAgent : undefined}
-          onSubmit={editMode ? handleUpdate : handleConnect}
-          onClose={() => { setShowSheet(false); setEditMode(false); }}
+      {showConnectSheet && (
+        <ConnectAgentSheet
+          onClose={() => setShowConnectSheet(false)}
+          initialValues={editMode ? connectedAgent : null}
         />
       )}
     </>
   );
 }
 
-function EmptyState({ onConnect }: { onConnect: () => void }) {
+function AgentEmptyState({ onConnect }: { onConnect: () => void }) {
   return (
     <div className="flex flex-col min-h-full pb-8 items-center justify-center px-6">
       <div className="flex flex-col items-center text-center max-w-[280px]">
-        <div className="w-20 h-20 rounded-full bg-zinc-800/60 border border-zinc-700/30 flex items-center justify-center mb-6">
+        <div className="w-20 h-20 rounded-full bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center mb-6">
           <Bot size={32} className="text-zinc-500" />
         </div>
-        <h1 className="text-[22px] font-bold tracking-tight mb-2 text-foreground">No Agent Connected</h1>
+        <h1 className="text-[22px] font-bold tracking-tight mb-2">No Agent Connected</h1>
         <p className="text-[13px] text-muted-foreground/50 leading-relaxed mb-8">
           Connect an agent to request payments, use private reasoning, and act within your spending rules.
         </p>
         <button
           onClick={onConnect}
-          className="w-full py-3 rounded-xl text-[14px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
+          className="w-full py-3 rounded-xl text-[14px] font-semibold transition-colors bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80"
         >
           Connect Agent
         </button>
+      </div>
+
+      <div className="mt-auto pt-10 text-center pb-4">
+        <p className="text-[10px] text-muted-foreground/20 font-medium tracking-widest uppercase">
+          Base Sepolia
+        </p>
       </div>
     </div>
   );
 }
 
-function ConnectionSheet({
-  initialValues,
-  onSubmit,
+function ConnectAgentSheet({
   onClose,
+  initialValues,
 }: {
-  initialValues?: ConnectedAgent;
-  onSubmit: (agent: ConnectedAgent) => void;
   onClose: () => void;
+  initialValues: ConnectedAgent | null;
 }) {
-  const [name, setName] = useState(initialValues?.name || '');
-  const [role, setRole] = useState(initialValues?.role || '');
-  const [address, setAddress] = useState(initialValues?.address || '');
+  const { connectAgent, editAgent } = useDemo();
+  const [name, setName] = useState(initialValues?.name ?? '');
+  const [role, setRole] = useState(initialValues?.role ?? '');
+  const [address, setAddress] = useState(initialValues?.address ?? '');
   const [errors, setErrors] = useState<{ name?: string; role?: string; address?: string }>({});
 
-  const handleSubmit = () => {
+  const validate = () => {
     const newErrors: typeof errors = {};
     if (!name.trim()) newErrors.name = 'Required';
     if (!role.trim()) newErrors.role = 'Required';
-    if (!address.trim()) newErrors.address = 'Required';
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
+    if (!address.trim()) {
+      newErrors.address = 'Required';
+    } else if (!address.trim().startsWith('0x') && !address.trim().includes('.eth')) {
+      newErrors.address = 'Must start with 0x or contain .eth';
     }
-    onSubmit({ name: name.trim(), role: role.trim(), address: address.trim() });
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
+    const agent: ConnectedAgent = {
+      name: name.trim(),
+      role: role.trim(),
+      address: address.trim(),
+    };
+    if (initialValues) {
+      editAgent(agent);
+    } else {
+      connectAgent(agent);
+    }
+    onClose();
   };
 
   return (
@@ -127,54 +121,60 @@ function ConnectionSheet({
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-[430px] bg-card border-t border-border/40 rounded-t-3xl p-6 pb-24 animate-in slide-in-from-bottom duration-300">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[18px] font-bold text-foreground">
+          <h2 className="text-[18px] font-bold tracking-tight">
             {initialValues ? 'Edit Agent' : 'Connect Agent'}
           </h2>
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center hover:bg-zinc-700 transition-colors">
-            <X size={14} className="text-zinc-400" />
+            <X size={16} className="text-zinc-400" />
           </button>
         </div>
 
         <div className="flex flex-col gap-4">
           <div>
-            <label className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Agent Name</label>
+            <label className="text-[11px] text-muted-foreground/50 font-medium uppercase tracking-wider mb-1.5 block">
+              Agent Name
+            </label>
             <input
               type="text"
               value={name}
-              onChange={(e) => { setName(e.target.value); setErrors(prev => ({ ...prev, name: undefined })); }}
-              placeholder="e.g. Scout"
-              className={`w-full px-4 py-2.5 rounded-xl bg-zinc-800/60 border text-[14px] text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors ${errors.name ? 'border-rose-500/50' : 'border-border/30'}`}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Research Bot"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/40 text-[14px] text-foreground placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-colors"
             />
             {errors.name && <p className="text-[10px] text-rose-400 mt-1">{errors.name}</p>}
           </div>
 
           <div>
-            <label className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Role / Description</label>
+            <label className="text-[11px] text-muted-foreground/50 font-medium uppercase tracking-wider mb-1.5 block">
+              Role / Description
+            </label>
             <input
               type="text"
               value={role}
-              onChange={(e) => { setRole(e.target.value); setErrors(prev => ({ ...prev, role: undefined })); }}
-              placeholder="e.g. Research agent · reads markets, files reports"
-              className={`w-full px-4 py-2.5 rounded-xl bg-zinc-800/60 border text-[14px] text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 transition-colors ${errors.role ? 'border-rose-500/50' : 'border-border/30'}`}
+              onChange={e => setRole(e.target.value)}
+              placeholder="e.g. Research agent · reads markets"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/40 text-[14px] text-foreground placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-colors"
             />
             {errors.role && <p className="text-[10px] text-rose-400 mt-1">{errors.role}</p>}
           </div>
 
           <div>
-            <label className="text-[11px] font-medium text-muted-foreground/60 uppercase tracking-wider mb-1.5 block">Execution Address or ENS</label>
+            <label className="text-[11px] text-muted-foreground/50 font-medium uppercase tracking-wider mb-1.5 block">
+              Execution Address or ENS
+            </label>
             <input
               type="text"
               value={address}
-              onChange={(e) => { setAddress(e.target.value); setErrors(prev => ({ ...prev, address: undefined })); }}
-              placeholder="e.g. 0x1234... or agent.base.eth"
-              className={`w-full px-4 py-2.5 rounded-xl bg-zinc-800/60 border text-[14px] text-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:ring-1 focus:ring-primary/40 font-mono text-[13px] transition-colors ${errors.address ? 'border-rose-500/50' : 'border-border/30'}`}
+              onChange={e => setAddress(e.target.value)}
+              placeholder="0x... or name.eth"
+              className="w-full px-4 py-3 rounded-xl bg-zinc-800/60 border border-zinc-700/40 text-[14px] text-foreground placeholder:text-zinc-600 focus:outline-none focus:border-primary/50 transition-colors font-mono text-[13px]"
             />
             {errors.address && <p className="text-[10px] text-rose-400 mt-1">{errors.address}</p>}
           </div>
 
           <button
             onClick={handleSubmit}
-            className="w-full py-3 rounded-xl text-[14px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all mt-2"
+            className="w-full py-3 rounded-xl text-[14px] font-semibold transition-colors bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 mt-2"
           >
             {initialValues ? 'Save Changes' : 'Connect Agent'}
           </button>
@@ -184,16 +184,14 @@ function ConnectionSheet({
   );
 }
 
-function ActiveState({
-  agent,
+function AgentActiveState({
   onEdit,
   onDisconnect,
 }: {
-  agent: ConnectedAgent;
   onEdit: () => void;
   onDisconnect: () => void;
 }) {
-  const { rules, feed, spendPermissions, recordScoutSwapAndPay } = useDemo();
+  const { rules, feed, spendPermissions, connectedAgent, recordScoutSwapAndPay } = useDemo();
   const { address, isConnected } = useAccount();
   const [, setLocation] = useLocation();
   const [scoutPayState, setScoutPayState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -202,6 +200,14 @@ function ActiveState({
   const approvedCount = feed.filter(i => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED').length;
   const blockedCount = feed.filter(i => i.status === 'BLOCKED').length;
   const activePermissions = spendPermissions.filter(p => p.state === 'active');
+
+  const agentName = connectedAgent?.name ?? 'Agent';
+  const agentRole = connectedAgent?.role ?? '';
+  const agentAddress = connectedAgent?.address ?? '';
+  const agentAddressShort = agentAddress.length > 10
+    ? `${agentAddress.slice(0, 6)}...${agentAddress.slice(-4)}`
+    : agentAddress;
+  const isEns = agentAddress.includes('.eth');
 
   const totalSpent = feed
     .filter(i => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED')
@@ -212,10 +218,6 @@ function ActiveState({
   const truncatedAddress = address 
     ? `${address.slice(0, 6)}...${address.slice(-4)}` 
     : null;
-
-  const agentAddressShort = agent.address.length > 12
-    ? `${agent.address.slice(0, 6)}...${agent.address.slice(-4)}`
-    : agent.address;
 
   const handleScoutAutoPay = useCallback(async () => {
     setScoutPayState('running');
@@ -281,28 +283,33 @@ function ActiveState({
           </div>
         </div>
         
-        <h1 className="text-[26px] font-bold tracking-tight mb-1">{agent.name}</h1>
-        <p className="text-[12px] text-muted-foreground/50 mb-1">{agent.role}</p>
-        <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-4">{agentAddressShort}</p>
-        
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/8 border border-emerald-500/10 text-[10px] font-medium text-emerald-400/80 mb-3">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Active
+        <h1 className="text-[26px] font-bold tracking-tight mb-1">{agentName}</h1>
+        <p className="text-[12px] text-muted-foreground/50 mb-1">{agentRole}</p>
+        <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-1">{agentAddressShort}</p>
+        {isEns && (
+          <p className="text-[9px] text-muted-foreground/20 font-mono tracking-wide mb-1">{agentAddress}</p>
+        )}
+
+        <div className="flex items-center gap-3 mt-3 mb-1">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/8 border border-emerald-500/10 text-[10px] font-medium text-emerald-400/80">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Active
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 mt-3">
           <button
             onClick={onEdit}
             className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors"
           >
-            <Pencil size={11} />
+            <Pencil size={12} />
             Edit Agent
           </button>
           <button
             onClick={onDisconnect}
-            className="flex items-center gap-1.5 text-[11px] text-muted-foreground/40 hover:text-rose-400/70 transition-colors"
+            className="flex items-center gap-1.5 text-[11px] text-rose-400/50 hover:text-rose-400/80 transition-colors"
           >
-            <Unplug size={11} />
+            <Unplug size={12} />
             Disconnect
           </button>
         </div>
@@ -322,7 +329,7 @@ function ActiveState({
           </div>
           <div className="space-y-3">
             <StateRow label="Status" value="Active" valueColor="text-emerald-400" />
-            <StateRow label="Spender address" value={SCOUT_ADDRESS_SHORT} mono />
+            <StateRow label="Spender address" value={agentAddressShort} mono />
             <StateRow 
               label="Spending from" 
               value={isConnected && truncatedAddress ? truncatedAddress : 'No wallet connected'} 
@@ -365,17 +372,17 @@ function ActiveState({
         <div className="bg-card rounded-2xl p-5 border border-border/30">
           <div className="flex items-center gap-2 mb-4">
             <ArrowLeftRight size={14} className="text-muted-foreground/40" />
-            <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">{agent.name} Auto-Pay</span>
+            <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">{agentName} Auto-Pay</span>
           </div>
           <p className="text-[11px] text-muted-foreground/40 mb-4">
-            {agent.name} can autonomously swap ETH → USDC via Uniswap then pay vendors. This triggers a real onchain swap + USDC transfer on Base Sepolia.
+            {agentName} can autonomously swap ETH → USDC via Uniswap then pay vendors. This triggers a real onchain swap + USDC transfer on Base Sepolia.
           </p>
           <button
             onClick={handleScoutAutoPay}
             disabled={scoutPayState === 'running'}
             className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 active:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {scoutPayState === 'running' ? 'Swapping & Paying...' : scoutPayState === 'done' ? 'Done — Check Activity ✓' : `Trigger ${agent.name} Swap → Pay`}
+            {scoutPayState === 'running' ? 'Swapping & Paying...' : scoutPayState === 'done' ? 'Done — Check Activity ✓' : `Trigger ${agentName} Swap → Pay`}
           </button>
           {scoutPayError && (
             <p className="mt-2 text-[10px] text-rose-400/80">{scoutPayError}</p>
@@ -404,7 +411,7 @@ function ActiveState({
 
       <div className="mt-auto pt-10 text-center pb-4">
         <p className="text-[10px] text-muted-foreground/20 font-medium tracking-widest uppercase">
-          {USE_METAMASK_DELEGATION ? 'ERC-7710 · ERC-7715 · ' : ''}Base Sepolia
+          Base Sepolia
         </p>
       </div>
     </div>

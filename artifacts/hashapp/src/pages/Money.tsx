@@ -27,7 +27,8 @@ const ERC20_BALANCE_ABI = [
 ] as const;
 
 export default function Money() {
-  const { feed, rules, spendPermissions, resetDemo, recordDelegationSpend } = useDemo();
+  const { feed, rules, spendPermissions, resetDemo, recordDelegationSpend, connectedAgent } = useDemo();
+  const agentName = connectedAgent?.name ?? 'your agent';
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
@@ -64,7 +65,7 @@ export default function Money() {
     <div className="flex flex-col min-h-full pb-8">
       <header className="px-6 pt-12 pb-2">
         <h1 className="text-[28px] font-bold tracking-tight">Money</h1>
-        <p className="text-[11px] text-muted-foreground/50 mt-0.5">Your wallet · Scout's allocation</p>
+        <p className="text-[11px] text-muted-foreground/50 mt-0.5">Your wallet · {agentName}'s allocation</p>
       </header>
 
       <div className="px-6 pt-5 flex flex-col gap-4">
@@ -148,7 +149,7 @@ export default function Money() {
             <div className="flex items-center gap-2 pl-1">
               <AgentAvatar size="sm" />
               <h3 className="text-[10px] font-semibold text-muted-foreground/35 uppercase tracking-[0.2em]">
-                Scout's Spend Permissions
+                {agentName}'s Spend Permissions
               </h3>
             </div>
             {activePermissions.map(perm => (
@@ -166,7 +167,7 @@ export default function Money() {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground text-[13px]">Protected by {activeRulesCount} rules</h3>
-            <p className="text-[10px] text-muted-foreground/40">Scout can only spend within your constraints</p>
+            <p className="text-[10px] text-muted-foreground/40">{agentName} can only spend within your constraints</p>
           </div>
           <ArrowRight size={14} className="text-muted-foreground/25 shrink-0" />
         </div>
@@ -201,8 +202,8 @@ export default function Money() {
           {isConnected ? (
             <p className="text-[10px] text-muted-foreground/35 leading-relaxed pl-10">
               {USE_METAMASK_DELEGATION
-                ? 'Funds stay in your smart wallet. Scout operates through MetaMask delegated permissions — Hashapp never takes custody.'
-                : 'Funds stay in your smart wallet. Scout operates through scoped permissions — Hashapp never takes custody.'}
+                ? `Funds stay in your smart wallet. ${agentName} operates through MetaMask delegated permissions — Hashapp never takes custody.`
+                : `Funds stay in your smart wallet. ${agentName} operates through scoped permissions — Hashapp never takes custody.`}
             </p>
           ) : (
             <div className="pl-10">

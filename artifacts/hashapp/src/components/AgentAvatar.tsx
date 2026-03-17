@@ -21,12 +21,9 @@ export function AgentAvatar({
     xl: 'w-20 h-20 text-[26px]',
   };
 
-  const iconSizes = {
-    sm: 10,
-    md: 16,
-    lg: 20,
-    xl: 28,
-  };
+  const iconSizes = { sm: 10, md: 16, lg: 20, xl: 28 };
+
+  const initial = connectedAgent?.name ? connectedAgent.name.charAt(0).toUpperCase() : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,8 +39,6 @@ export function AgentAvatar({
     e.target.value = '';
   };
 
-  const initial = connectedAgent?.name?.charAt(0)?.toUpperCase() || null;
-
   const avatar = (
     <div
       className={`relative rounded-full overflow-hidden flex items-center justify-center shrink-0 ${sizeClasses[size]} ${className}`}
@@ -51,7 +46,7 @@ export function AgentAvatar({
       {agentAvatarUrl ? (
         <img
           src={agentAvatarUrl}
-          alt={connectedAgent?.name || 'Agent'}
+          alt={connectedAgent?.name ?? 'Agent'}
           className="w-full h-full object-cover"
         />
       ) : initial ? (
@@ -59,7 +54,7 @@ export function AgentAvatar({
           <span className="font-bold text-zinc-300">{initial}</span>
         </div>
       ) : (
-        <div className="w-full h-full bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/40 flex items-center justify-center rounded-full">
+        <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 border border-zinc-700/60 flex items-center justify-center rounded-full">
           <Bot size={iconSizes[size]} className="text-zinc-500" />
         </div>
       )}
