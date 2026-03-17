@@ -82,6 +82,12 @@ export interface Rule {
   enabled: boolean;
 }
 
+export interface ConnectedAgent {
+  name: string;
+  role: string;
+  address: string;
+}
+
 interface DemoState {
   feed: FeedItem[];
   rules: Rule[];
@@ -91,6 +97,10 @@ interface DemoState {
   setPrivateReasoningEnabled: (enabled: boolean) => void;
   agentAvatarUrl: string | null;
   setAgentAvatarUrl: (url: string | null) => void;
+  connectedAgent: ConnectedAgent | null;
+  connectAgent: (agent: ConnectedAgent) => void;
+  updateAgent: (agent: ConnectedAgent) => void;
+  disconnectAgent: () => void;
   approvePending: (
     id: string,
     realTxHash?: string,
@@ -253,6 +263,7 @@ const INITIAL_RULES: Rule[] = [
 
 const STORAGE_KEY = 'hashapp_demo_state';
 const AVATAR_STORAGE_KEY = 'hashapp_agent_avatar';
+const AGENT_STORAGE_KEY = 'hashapp_connected_agent';
 
 function loadPersistedState() {
   try {
@@ -306,6 +317,31 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {}
   }, []);
+
+  const [connectedAgent, setConnectedAgent] = useState<ConnectedAgent | null>(() => {
+    try {
+      const raw = localStorage.getItem(AGENT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const connectAgent = useCallback((agent: ConnectedAgent) => {
+    setConnectedAgent(agent);
+    try { localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(agent)); } catch {}
+  }, []);
+
+  const updateAgent = useCallback((agent: ConnectedAgent) => {
+    setConnectedAgent(agent);
+    try { localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(agent)); } catch {}
+  }, []);
+
+  const disconnectAgent = useCallback(() => {
+    setConnectedAgent(null);
+    setAgentAvatarUrl(null);
+    try { localStorage.removeItem(AGENT_STORAGE_KEY); } catch {}
+  }, [setAgentAvatarUrl]);
 
   useEffect(() => {
     persistState(feed, rules, spendPermissions, stage, privateReasoningEnabled);
@@ -603,7 +639,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
+    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, connectedAgent, connectAgent, updateAgent, disconnectAgent, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
       {children}
     </DemoContext.Provider>
   );
