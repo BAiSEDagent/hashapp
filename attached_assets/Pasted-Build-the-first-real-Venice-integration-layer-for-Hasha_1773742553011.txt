@@ -1,0 +1,127 @@
+Build the first real Venice integration layer for Hashapp tonight.
+
+Read first
+partner-tracks/VENICE.md
+PRODUCT.md
+docs/product/AGENT_LINK.md
+docs/ops/AGENT_LINK_TASK_PROMPT.md
+
+Current files to inspect
+app/artifacts/hashapp/src/pages/Agent.tsx
+app/artifacts/hashapp/src/pages/Activity.tsx
+app/artifacts/hashapp/src/pages/Receipt.tsx
+app/artifacts/hashapp/src/context/DemoContext.tsx
+Venice API notes
+Use the Venice docs:
+OpenAI-compatible API
+env var: VENICE_API_KEY
+base URL: https://api.venice.ai/api/v1
+
+Start with text-first support.
+Do not block the first integration on full multimodal plumbing.
+
+Product rules
+Do not build:
+a Venice tab
+a Venice mode toggle
+a whole-app Venice skin
+a generic “private AI dashboard”
+a giant provider/settings panel
+Venice must appear as:
+an agent capability
+a private reasoning layer
+a reasoning provenance / disclosure layer
+
+Hashapp remains the product.
+
+Goal
+Ship the first Venice-backed UX slice that makes the product clearly eligible for the Venice track without derailing the core Hashapp story.
+
+What to build
+Agent page — Reasoning & Privacy card
+Add a new card to the Agent page:
+
+Reasoning & Privacy
+Show:
+Private review: On / Off
+Provider: Venice
+Inputs allowed: Text / Vision / Audio
+Disclosure policy: Summary only
+Last private analysis: relative time
+Optional short explanation:
+“Private reasoning can inform actions without exposing raw inputs publicly.”
+
+This is the main Venice surface.
+
+Activity provenance
+Add a subtle provenance marker for Venice-informed actions:
+Venice-assisted
+or
+Private review used
+
+This should be light-touch.
+No giant new feed type.
+Receipt disclosure section
+For Venice-informed actions, add:
+Reasoning provenance
+Disclosure summary
+
+Example:
+Reasoning provenance: Private analysis via Venice
+Disclosure summary: Vendor, amount, and settlement proof are public. Sensitive strategy context remained private.
+
+Demo state
+Extend the demo data so at least one realistic Venice-backed action exists.
+
+Example scenario:
+Scout privately reviewed a sensitive vendor/report/payment decision
+returned a concise reason summary
+action appears in Activity and Receipt with Venice provenance
+Add the minimum new fields needed, such as:
+privateReasoningUsed
+reasoningProvider
+reasonSummary
+disclosureSummary
+maybe privateInputTypes
+
+Thin integration point
+If practical tonight, add a small backend/client integration point for Venice using:
+VENICE_API_KEY
+OpenAI SDK
+Venice base URL
+
+This can be a thin stub/service layer.
+It does not need full production orchestration tonight.
+
+UX direction
+Good
+agent-level privacy
+structured provenance
+clean disclosure boundary
+“what stayed private vs what became public”
+
+Bad
+big purple Venice hero sections
+sci-fi privacy theatrics
+turning Hashapp into a Venice wrapper
+overbuilt provider abstraction
+
+Deliverable
+Return exactly:
+files changed
+new data fields added
+whether Venice API integration was stubbed or wired
+screenshots of:
+Agent page card
+Activity item
+Receipt provenance/disclosure section
+commit hash
+branch
+pushed or not
+
+Success condition
+A judge should understand in 10 seconds:
+the agent used private reasoning
+Venice powered that reasoning
+Hashapp controlled what became public
+the app still feels like Hashapp, not a Venice demo shell
