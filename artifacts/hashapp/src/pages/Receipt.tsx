@@ -250,7 +250,7 @@ export default function Receipt() {
               )}
               {item.disclosureSummary && (
                 <div className="flex flex-col gap-1.5 py-4 border-t border-white/[0.05]">
-                  <span className="text-[11px] text-muted-foreground/40 font-medium">Disclosure boundary</span>
+                  <span className="text-[11px] text-muted-foreground/40 font-medium">Disclosure summary</span>
                   <span className="text-[12px] text-foreground/80 font-medium leading-relaxed">{item.disclosureSummary}</span>
                 </div>
               )}
