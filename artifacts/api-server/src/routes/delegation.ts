@@ -199,15 +199,18 @@ delegationRouter.post('/delegation/register', async (req, res) => {
       return;
     }
 
-    const [challengeRow] = await db.select().from(delegationChallenges).where(eq(delegationChallenges.nonce, challengeNonce)).limit(1);
+    const [challengeRow] = await db
+      .delete(delegationChallenges)
+      .where(
+        and(
+          eq(delegationChallenges.nonce, challengeNonce),
+          eq(delegationChallenges.used, false),
+        ),
+      )
+      .returning();
 
     if (!challengeRow) {
-      res.status(401).json({ error: 'Invalid or unknown challenge' });
-      return;
-    }
-
-    if (challengeRow.used) {
-      res.status(401).json({ error: 'Challenge already used' });
+      res.status(401).json({ error: 'Invalid, expired, or already-used challenge' });
       return;
     }
 
@@ -244,8 +247,6 @@ delegationRouter.post('/delegation/register', async (req, res) => {
       res.status(401).json({ error: 'Signature verification failed' });
       return;
     }
-
-    await db.update(delegationChallenges).set({ used: true }).where(eq(delegationChallenges.nonce, challengeNonce));
 
     const embeddedDelegator = extractDelegatorFromContext(permissionsContext as `0x${string}`);
     if (embeddedDelegator) {
@@ -350,11 +351,15 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
 
-    const amountStr = String(amountUsdc);
-    if (!USDC_AMOUNT_PATTERN.test(amountStr)) {
+    if (typeof amountUsdc !== 'string') {
+      res.status(400).json({ error: 'amountUsdc must be a string (e.g. "5" or "5.50")' });
+      return;
+    }
+    if (!USDC_AMOUNT_PATTERN.test(amountUsdc)) {
       res.status(400).json({ error: 'amountUsdc must be a decimal string (e.g. "5" or "5.50")' });
       return;
     }
+    const amountStr = amountUsdc;
     const amountNum = parseFloat(amountStr);
     if (amountNum <= 0 || amountNum > MAX_SPEND_AMOUNT) {
       res.status(400).json({ error: `Amount must be between 0 and ${MAX_SPEND_AMOUNT} USDC` });
