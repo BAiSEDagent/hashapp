@@ -123,9 +123,9 @@ function ConnectionSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-card border-t border-border/40 rounded-t-3xl p-6 pb-8 animate-in slide-in-from-bottom duration-300">
+      <div className="relative w-full max-w-[430px] bg-card border-t border-border/40 rounded-t-3xl p-6 pb-24 animate-in slide-in-from-bottom duration-300">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-[18px] font-bold text-foreground">
             {initialValues ? 'Edit Agent' : 'Connect Agent'}
