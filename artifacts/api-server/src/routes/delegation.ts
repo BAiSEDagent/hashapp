@@ -21,7 +21,7 @@ const ALLOWED_RECIPIENTS: Record<string, boolean> = {
 
 const ALLOWED_DELEGATION_MANAGER = '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3';
 
-const MAX_SPEND_AMOUNT = 1000;
+const MAX_SPEND_AMOUNT_MICRO = 1_000_000_000n;
 const SPEND_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -360,9 +360,15 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
     const amountStr = amountUsdc;
-    const amountNum = parseFloat(amountStr);
-    if (amountNum <= 0 || amountNum > MAX_SPEND_AMOUNT) {
-      res.status(400).json({ error: `Amount must be between 0 and ${MAX_SPEND_AMOUNT} USDC` });
+    let amountMicro: bigint;
+    try {
+      amountMicro = parseUnits(amountStr, 6);
+    } catch {
+      res.status(400).json({ error: 'amountUsdc could not be parsed as USDC amount' });
+      return;
+    }
+    if (amountMicro <= 0n || amountMicro > MAX_SPEND_AMOUNT_MICRO) {
+      res.status(400).json({ error: 'Amount must be between 0 and 1000 USDC' });
       return;
     }
 
