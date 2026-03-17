@@ -84,6 +84,9 @@ function getHmacSecret(): string {
   if (dedicated) {
     return dedicated;
   }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('DELEGATION_AUTH_SECRET is required in production. Do not rely on fallback.');
+  }
   const raw = process.env.SCOUT_PRIVATE_KEY?.trim();
   if (!raw) throw new Error('Neither DELEGATION_AUTH_SECRET nor SCOUT_PRIVATE_KEY configured');
   console.warn('[DelegationAuth] DELEGATION_AUTH_SECRET not set — falling back to derived secret from SCOUT_PRIVATE_KEY. Set DELEGATION_AUTH_SECRET for production.');
