@@ -16,7 +16,7 @@ import { TruthBadge } from '@/components/TruthBadge';
 
 export default function Receipt() {
   const [, params] = useRoute('/receipt/:id');
-  const { feed, spendPermissions, recordDelegationSpend } = useDemo();
+  const { feed, spendPermissions, recordDelegationSpend, privateReasoningEnabled } = useDemo();
   const [isSpending, setIsSpending] = useState(false);
   const [spendError, setSpendError] = useState<string | null>(null);
   const [spendTxHash, setSpendTxHash] = useState<string | null>(null);
@@ -235,7 +235,7 @@ export default function Receipt() {
             )}
           </div>
 
-          {item.privateReasoningUsed && (
+          {item.privateReasoningUsed && privateReasoningEnabled && (
             <div className="w-full bg-card rounded-2xl p-5 border border-violet-500/15 mt-4 space-y-0">
               <div className="flex items-center gap-2 mb-4">
                 <Eye size={12} className="text-violet-400/60" />
