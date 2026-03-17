@@ -1,0 +1,75 @@
+Read this carefully: the next task is not “what should we work on next?”
+It is: close every open audit item that can be closed now.
+
+Current truth
+Good:
+C1 auth flow is live
+grant/register/spend is proven onchain
+canonical repo is cleaned up
+
+Not done:
+shared state is still in-memory
+SDK versions are split
+delegation truth in UI is still optimistic
+expiry/revocation handling is still weak
+auth secret is coupled to SCOUT_PRIVATE_KEY
+challenge flow is still client-generated instead of server-issued
+
+Required fixes
+Execute these in order.
+
+Separate auth secret from SCOUT_PRIVATE_KEY
+Add a dedicated env var:
+DELEGATION_AUTH_SECRET
+
+Use it for HMAC/token auth.
+Do not derive auth secret from the spend key anymore.
+
+Replace in-memory auth/rate/idempotency state with durable shared storage
+Move these out of process memory:
+used challenges
+context-owner registry
+idempotency keys
+rate-limit state
+
+Use the simplest durable shared store available in this stack.
+If no real shared store exists, create the minimal persistence layer and document the limitation precisely.
+
+Upgrade or align the MetaMask SDK versions
+Remove the 0.3.0 / 0.4.0-beta.1 split if possible.
+If backend must stay pinned temporarily, document exactly why and add a compatibility note in code and README.
+
+Fix delegation truth in UI
+Do not hardcode delegation onchainVerified as true.
+At minimum:
+store expiry
+render expiry state
+surface “may be revoked/expired” truthfully until revocation checks exist
+avoid overclaiming with ONCHAIN if current live status is not actually checked
+
+Move register auth to a true server-issued challenge
+Required flow:
+server issues nonce/challenge
+client signs server challenge
+server verifies and burns nonce
+then mint spend token
+
+Do not rely only on a client-generated timestamped message.
+
+Tighten numeric handling
+Stop flowing spend amount through loose Number() coercion where possible.
+Use validated decimal strings for USDC amounts.
+
+Deliverable
+Return exactly:
+files changed
+findings closed
+commit hash
+branch
+pushed or not
+deployed yes/no
+what remains open, if anything
+
+Rule
+Do not stop at partial hardening.
+Everything that can be fixed now should be fixed now.
