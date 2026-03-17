@@ -48,26 +48,32 @@ export default function Receipt() {
 
   const delegationContext = item?.permissionsContext || linkedPerm?.permissionsContext;
   const delegationMgr = item?.delegationManager || linkedPerm?.delegationManager;
-  const canSpend = isDelegation && !!delegationContext && !!delegationMgr && !spendTxHash;
+  const delegationSpendToken = item?.spendToken || linkedPerm?.spendToken;
+  const canSpend = isDelegation && !!delegationContext && !!delegationMgr && !!delegationSpendToken && !spendTxHash;
 
   const handleDelegatedSpend = async () => {
-    if (!delegationContext || !delegationMgr) return;
+    if (!delegationContext || !delegationMgr || !delegationSpendToken) return;
     setIsSpending(true);
     setSpendError(null);
     try {
-      console.log('[Spend] Triggering delegated spend...', {
-        permissionsContext: delegationContext.slice(0, 20) + '...',
-        delegationManager: delegationMgr,
-        recipient: SCOUT_SESSION_ADDRESS,
-        amountUsdc: 5,
-      });
+      if (import.meta.env.DEV) {
+        console.log('[Spend] Triggering delegated spend...', {
+          permissionsContext: delegationContext.slice(0, 20) + '...',
+          delegationManager: delegationMgr,
+          recipient: SCOUT_SESSION_ADDRESS,
+          amountUsdc: 5,
+        });
+      }
       const result = await executeDelegationSpend({
         permissionsContext: delegationContext,
         delegationManager: delegationMgr,
         amountUsdc: 5,
         recipient: SCOUT_SESSION_ADDRESS,
+        spendToken: delegationSpendToken,
       });
-      console.log('[Spend] Success! txHash:', result.txHash);
+      if (import.meta.env.DEV) {
+        console.log('[Spend] Success! txHash:', result.txHash);
+      }
       setSpendTxHash(result.txHash);
       if (linkedPerm) {
         recordDelegationSpend(linkedPerm.id, result.txHash);

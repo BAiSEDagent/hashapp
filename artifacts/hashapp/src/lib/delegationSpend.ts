@@ -5,6 +5,7 @@ export interface DelegationSpendParams {
   delegationManager: `0x${string}`;
   amountUsdc: number;
   recipient: `0x${string}`;
+  spendToken: string;
 }
 
 export interface DelegationSpendResult {
@@ -34,6 +35,7 @@ export async function executeDelegationSpend(
       amountUsdc: params.amountUsdc,
       recipient: params.recipient,
       idempotencyKey,
+      spendToken: params.spendToken,
     }),
   });
 

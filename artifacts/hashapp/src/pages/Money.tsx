@@ -281,10 +281,10 @@ function SpendPermissionRow({ permission, onSpend }: { permission: SpendPermissi
     badgeType = 'demo';
   }
 
-  const canSpend = isDelegation && permission.permissionsContext && permission.delegationManager;
+  const canSpend = isDelegation && permission.permissionsContext && permission.delegationManager && permission.spendToken;
 
   const handleSpend = async () => {
-    if (!canSpend || !permission.permissionsContext || !permission.delegationManager) return;
+    if (!canSpend || !permission.permissionsContext || !permission.delegationManager || !permission.spendToken) return;
     setIsSpending(true);
     setSpendError(null);
     try {
@@ -293,6 +293,7 @@ function SpendPermissionRow({ permission, onSpend }: { permission: SpendPermissi
         delegationManager: permission.delegationManager,
         amountUsdc: 5,
         recipient: '0x000000000000000000000000000000000000dEaD' as `0x${string}`,
+        spendToken: permission.spendToken,
       });
       onSpend(permission.id, result.txHash);
     } catch (e: unknown) {

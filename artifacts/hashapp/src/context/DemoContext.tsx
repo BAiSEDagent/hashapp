@@ -35,6 +35,7 @@ export interface FeedItem {
   permissionsContext?: `0x${string}`;
   delegationManager?: `0x${string}`;
   isDelegation?: boolean;
+  spendToken?: string;
   type?: FeedItemType;
   swapDetails?: SwapDetails;
 }
@@ -65,6 +66,7 @@ export interface SpendPermission {
   permissionsContext?: `0x${string}`;
   delegationManager?: `0x${string}`;
   isDelegation?: boolean;
+  spendToken?: string;
 }
 
 export interface Rule {
@@ -89,6 +91,7 @@ interface DemoState {
     delegationFields?: {
       permissionsContext: `0x${string}`;
       delegationManager: `0x${string}`;
+      spendToken?: string;
     },
   ) => void;
   recordDelegationSpend: (
@@ -343,6 +346,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     delegationFields?: {
       permissionsContext: `0x${string}`;
       delegationManager: `0x${string}`;
+      spendToken?: string;
     },
   ) => {
     const isDelegation = !!delegationFields;
@@ -362,6 +366,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
             permissionsContext: delegationFields?.permissionsContext,
             delegationManager: delegationFields?.delegationManager,
             isDelegation,
+            spendToken: delegationFields?.spendToken,
           } 
         : item
     ));
@@ -381,6 +386,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       permissionsContext: delegationFields?.permissionsContext,
       delegationManager: delegationFields?.delegationManager,
       isDelegation,
+      spendToken: delegationFields?.spendToken,
     }]);
     if (stage === 'PENDING_ADDED') setStage('APPROVED');
   }, [stage]);

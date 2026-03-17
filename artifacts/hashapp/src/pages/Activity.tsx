@@ -7,6 +7,7 @@ import { waitForTransactionReceipt, readContract } from 'wagmi/actions';
 import { walletConfig } from '@/config/wallet';
 import { USE_METAMASK_DELEGATION } from '@/config/delegation';
 import { requestDelegatedPermission } from '@/lib/metamaskPermissions';
+import { registerDelegation } from '@/lib/delegationAuth';
 import { useDemo, type FeedItem, type StatusType } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { AgentAvatar } from '@/components/AgentAvatar';
@@ -121,6 +122,7 @@ function FeedCard({
     delegationFields?: {
       permissionsContext: `0x${string}`;
       delegationManager: `0x${string}`;
+      spendToken?: string;
     },
   ) => void;
   onDecline: () => void;
@@ -215,6 +217,7 @@ function PendingCard({
     delegationFields?: {
       permissionsContext: `0x${string}`;
       delegationManager: `0x${string}`;
+      spendToken?: string;
     },
   ) => void;
   onDecline: () => void;
@@ -228,7 +231,7 @@ function PendingCard({
   const { writeContractAsync } = useWriteContract();
 
   const handleGrantDelegation = async () => {
-    if (!isConnected) return;
+    if (!isConnected || !address) return;
 
     setIsApproving(true);
     setError(null);
@@ -236,9 +239,12 @@ function PendingCard({
     try {
       const result = await requestDelegatedPermission(item.amount);
 
+      const authResult = await registerDelegation(result.permissionsContext, address);
+
       onApprove(item.id, undefined, undefined, true, {
         permissionsContext: result.permissionsContext,
         delegationManager: result.delegationManager,
+        spendToken: authResult.spendToken,
       });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Delegation request failed';

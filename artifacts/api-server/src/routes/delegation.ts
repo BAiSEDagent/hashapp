@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { createWalletClient, http, encodeFunctionData, erc20Abi, parseUnits, isAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
@@ -18,6 +19,7 @@ const ALLOWED_RECIPIENTS: Record<string, boolean> = {
 const ALLOWED_DELEGATION_MANAGER = '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3';
 
 const MAX_SPEND_AMOUNT = 1000;
+const SPEND_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_PER_CONTEXT = 5;
@@ -38,9 +40,94 @@ function pruneExpiredEntries() {
 
 setInterval(pruneExpiredEntries, 60_000);
 
+function getHmacSecret(): string {
+  const raw = process.env.SCOUT_PRIVATE_KEY?.trim();
+  if (!raw) throw new Error('SCOUT_PRIVATE_KEY not configured');
+  return createHmac('sha256', 'hashapp-delegation-auth-v1').update(raw).digest('hex');
+}
+
+function createSpendToken(permissionsContext: string, delegatorAddress: string, issuedAt: number): string {
+  const secret = getHmacSecret();
+  const payload = `${permissionsContext.toLowerCase()}:${delegatorAddress.toLowerCase()}:${issuedAt}`;
+  const sig = createHmac('sha256', secret).update(payload).digest('hex');
+  const tokenData = JSON.stringify({ ctx: permissionsContext.toLowerCase(), addr: delegatorAddress.toLowerCase(), iat: issuedAt, sig });
+  return Buffer.from(tokenData).toString('base64url');
+}
+
+function validateSpendToken(token: string, permissionsContext: string): { valid: boolean; error?: string; delegatorAddress?: string } {
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64url').toString('utf-8'));
+    const { ctx, addr, iat, sig } = decoded;
+
+    if (!ctx || !addr || !iat || !sig) {
+      return { valid: false, error: 'Malformed spend token' };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now - iat > SPEND_TOKEN_TTL_SECONDS) {
+      return { valid: false, error: 'Spend token expired' };
+    }
+
+    if (ctx !== permissionsContext.toLowerCase()) {
+      return { valid: false, error: 'Token does not match permissionsContext' };
+    }
+
+    const secret = getHmacSecret();
+    const payload = `${ctx}:${addr}:${iat}`;
+    const expectedSig = createHmac('sha256', secret).update(payload).digest('hex');
+
+    const sigBuf = Buffer.from(sig, 'hex');
+    const expectedBuf = Buffer.from(expectedSig, 'hex');
+    if (sigBuf.length !== expectedBuf.length || !timingSafeEqual(sigBuf, expectedBuf)) {
+      return { valid: false, error: 'Invalid token signature' };
+    }
+
+    return { valid: true, delegatorAddress: addr };
+  } catch {
+    return { valid: false, error: 'Invalid spend token format' };
+  }
+}
+
+delegationRouter.post('/delegation/register', async (req, res) => {
+  try {
+    const { permissionsContext, delegatorAddress } = req.body;
+
+    if (!permissionsContext || !delegatorAddress) {
+      res.status(400).json({ error: 'Missing required fields: permissionsContext, delegatorAddress' });
+      return;
+    }
+
+    if (typeof permissionsContext !== 'string' || !permissionsContext.startsWith('0x') || permissionsContext.length < 10) {
+      res.status(400).json({ error: 'Invalid permissionsContext format' });
+      return;
+    }
+
+    if (!isAddress(delegatorAddress)) {
+      res.status(400).json({ error: 'Invalid delegatorAddress' });
+      return;
+    }
+
+    const issuedAt = Math.floor(Date.now() / 1000);
+    const spendToken = createSpendToken(permissionsContext, delegatorAddress, issuedAt);
+
+    console.log('[DelegationRegister] Issued spend token for delegator:', delegatorAddress.slice(0, 10) + '...');
+
+    res.json({ spendToken, expiresAt: issuedAt + SPEND_TOKEN_TTL_SECONDS });
+  } catch (error: unknown) {
+    const rawMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[DelegationRegister] ERROR:', rawMessage);
+    res.status(500).json({ error: 'Failed to register delegation' });
+  }
+});
+
 delegationRouter.post('/delegation/spend', async (req, res) => {
   try {
-    const { permissionsContext, delegationManager, tokenAddress, amountUsdc, recipient, idempotencyKey } = req.body;
+    const { permissionsContext, delegationManager, tokenAddress, amountUsdc, recipient, idempotencyKey, spendToken } = req.body;
+
+    if (!spendToken || typeof spendToken !== 'string') {
+      res.status(401).json({ error: 'Missing spend authorization token' });
+      return;
+    }
 
     if (!permissionsContext || !delegationManager || !tokenAddress || !amountUsdc || !recipient) {
       res.status(400).json({ error: 'Missing required fields: permissionsContext, delegationManager, tokenAddress, amountUsdc, recipient' });
@@ -49,6 +136,12 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
 
     if (typeof permissionsContext !== 'string' || !permissionsContext.startsWith('0x') || permissionsContext.length < 10) {
       res.status(400).json({ error: 'Invalid permissionsContext format' });
+      return;
+    }
+
+    const tokenValidation = validateSpendToken(spendToken, permissionsContext);
+    if (!tokenValidation.valid) {
+      res.status(401).json({ error: tokenValidation.error || 'Unauthorized' });
       return;
     }
 
@@ -148,6 +241,8 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     if (idempotencyKey && typeof idempotencyKey === 'string') {
       idempotencyMap.set(idempotencyKey, { txHash, ts: Date.now() });
     }
+
+    console.log('[DelegationSpend] SUCCESS for delegator:', tokenValidation.delegatorAddress?.slice(0, 10) + '...', 'txHash:', txHash);
 
     res.json({ txHash, success: true });
   } catch (error: unknown) {
