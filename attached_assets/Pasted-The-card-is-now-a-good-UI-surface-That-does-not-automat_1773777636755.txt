@@ -1,0 +1,131 @@
+The card is now a good UI surface.
+That does not automatically mean the Venice feature is real.
+
+What it should do
+If this is truly connected, then turning it on should change the behavior of the agent flow.
+
+Specifically
+When Private review = ON:
+an agent action can call the Venice backend
+Venice privately analyzes text input
+Hashapp stores only:
+provider = Venice
+short reason summary
+disclosure summary
+Activity shows:
+Venice-assisted
+Receipt shows:
+Reasoning provenance
+what stayed private vs what became public
+
+When Private review = OFF:
+no Venice call
+no Venice provenance
+no Venice disclosure section on new actions
+
+If it does not change behavior, it is still mostly presentation.
+
+How do we know it works?
+We need a proof loop, same as we did for delegation.
+
+Minimum proof
+toggle ON
+trigger one action that is supposed to use private review
+backend actually hits Venice route
+Venice returns analysis
+Activity item is marked Venice-assisted
+Receipt shows provenance/disclosure
+logs or response prove the provider call happened
+
+Best proof artifact
+A single realistic demo action like:
+
+“Scout privately reviewed a PitchBook purchase request”
+Venice generated a summary
+Hashapp recorded:
+reason summary
+disclosure summary
+Receipt shows provenance
+That’s enough.
+
+What details are missing right now
+Trigger path
+What action actually causes Venice to run?
+That is still unclear.
+
+Live backend proof
+Do we have:
+a real /api/venice/... call
+on a real user action
+producing stored output?
+
+If not, it’s not fully real.
+
+Persistence
+Does the result survive refresh?
+Do Activity/Receipt read from real stored data or just seeded demo state?
+
+OFF behavior
+Does disabling the toggle actually stop Venice usage for future actions?
+
+Feedback
+What does the user see while analysis is happening?
+Need at least:
+analyzing
+ready
+unavailable / not configured
+
+Failure truth
+If VENICE_API_KEY is missing or call fails:
+does the product say so honestly?
+or does it silently pretend?
+My blunt read
+Current state is probably:
+good UI
+unclear behavior
+not yet proven feature
+
+What to tell him
+Paste this:
+
+---
+
+Good UI pass.
+Now prove the behavior.
+
+Questions to answer
+What exact action triggers Venice analysis?
+When the toggle is OFF, what behavior changes?
+When the toggle is ON, what backend call happens?
+Is the result persisted into Activity / Receipt, or only mocked in demo state?
+What does the user see when Venice is unavailable?
+
+Required next task
+Build one real Venice proof loop:
+
+Flow
+toggle ON
+trigger a single text-based private review action
+backend calls Venice
+store:
+reasoningProvider
+reasonSummary
+disclosureSummary
+Activity shows Venice-assisted
+Receipt shows provenance + disclosure
+Deliverable
+Return exactly:
+trigger path
+files changed
+whether this is real API-backed or still mocked
+screenshot of Activity
+screenshot of Receipt
+commit hash
+branch
+pushed or not
+
+Right now the UI looks better, but we still need proof that the feature actually works.
+
+---
+
+That is the real next step.
