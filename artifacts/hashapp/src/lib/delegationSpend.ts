@@ -12,10 +12,18 @@ export interface DelegationSpendResult {
   success: boolean;
 }
 
+let spendCounter = 0;
+
+function generateIdempotencyKey(context: string, amount: number, recipient: string): string {
+  spendCounter++;
+  return `${context.slice(0, 40)}-${recipient.slice(0, 10)}-${amount}-${spendCounter}`;
+}
+
 export async function executeDelegationSpend(
   params: DelegationSpendParams,
 ): Promise<DelegationSpendResult> {
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+  const idempotencyKey = generateIdempotencyKey(params.permissionsContext, params.amountUsdc, params.recipient);
   const response = await fetch(`${apiBase}/delegation/spend`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,12 +33,19 @@ export async function executeDelegationSpend(
       tokenAddress: USDC_BASE_SEPOLIA,
       amountUsdc: params.amountUsdc,
       recipient: params.recipient,
+      idempotencyKey,
     }),
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Delegation spend failed: ${body}`);
+    let errorMsg = 'Delegation spend failed';
+    try {
+      const body = await response.json();
+      if (body?.error) errorMsg = body.error;
+    } catch {
+      errorMsg = `Delegation spend failed (HTTP ${response.status})`;
+    }
+    throw new Error(errorMsg);
   }
 
   const result = await response.json();

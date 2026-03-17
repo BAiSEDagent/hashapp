@@ -7,23 +7,47 @@ import { erc7710WalletActions } from '@metamask/smart-accounts-kit/actions';
 const delegationRouter = Router();
 
 const ALLOWED_TOKENS: Record<string, boolean> = {
-  '0x036CbD53842c5426634e7929541eC2318f3dCF7e': true,
+  '0x036cbd53842c5426634e7929541ec2318f3dcf7e': true,
+};
+
+const ALLOWED_RECIPIENTS: Record<string, boolean> = {
+  '0xbf8bfde4b42baa2f4377b8ebc5d2602d3080a4d4': true,
+  '0x000000000000000000000000000000000000dead': true,
 };
 
 const ALLOWED_DELEGATION_MANAGER = '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3';
 
 const MAX_SPEND_AMOUNT = 1000;
 
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_PER_CONTEXT = 5;
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+
+const IDEMPOTENCY_TTL_MS = 300_000;
+const idempotencyMap = new Map<string, { txHash: string; ts: number }>();
+
+function pruneExpiredEntries() {
+  const now = Date.now();
+  for (const [key, entry] of idempotencyMap) {
+    if (now - entry.ts > IDEMPOTENCY_TTL_MS) idempotencyMap.delete(key);
+  }
+  for (const [key, entry] of rateLimitMap) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(key);
+  }
+}
+
+setInterval(pruneExpiredEntries, 60_000);
+
 delegationRouter.post('/delegation/spend', async (req, res) => {
   try {
-    const { permissionsContext, delegationManager, tokenAddress, amountUsdc, recipient } = req.body;
+    const { permissionsContext, delegationManager, tokenAddress, amountUsdc, recipient, idempotencyKey } = req.body;
 
     if (!permissionsContext || !delegationManager || !tokenAddress || !amountUsdc || !recipient) {
       res.status(400).json({ error: 'Missing required fields: permissionsContext, delegationManager, tokenAddress, amountUsdc, recipient' });
       return;
     }
 
-    if (typeof permissionsContext !== 'string' || !permissionsContext.startsWith('0x')) {
+    if (typeof permissionsContext !== 'string' || !permissionsContext.startsWith('0x') || permissionsContext.length < 10) {
       res.status(400).json({ error: 'Invalid permissionsContext format' });
       return;
     }
@@ -43,8 +67,13 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
 
-    if (!ALLOWED_TOKENS[tokenAddress]) {
+    if (!ALLOWED_TOKENS[tokenAddress.toLowerCase()]) {
       res.status(403).json({ error: 'Token not in allowlist' });
+      return;
+    }
+
+    if (!ALLOWED_RECIPIENTS[recipient.toLowerCase()]) {
+      res.status(403).json({ error: 'Recipient not in allowlist' });
       return;
     }
 
@@ -59,9 +88,34 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
 
+    if (idempotencyKey && typeof idempotencyKey === 'string') {
+      const existing = idempotencyMap.get(idempotencyKey);
+      if (existing) {
+        res.json({ txHash: existing.txHash, success: true, deduplicated: true });
+        return;
+      }
+    }
+
+    const now = Date.now();
+    const contextKey = permissionsContext.slice(0, 66).toLowerCase();
+    const rateEntry = rateLimitMap.get(contextKey);
+    if (rateEntry) {
+      if (now - rateEntry.windowStart < RATE_LIMIT_WINDOW_MS) {
+        if (rateEntry.count >= RATE_LIMIT_MAX_PER_CONTEXT) {
+          res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
+          return;
+        }
+        rateEntry.count++;
+      } else {
+        rateLimitMap.set(contextKey, { count: 1, windowStart: now });
+      }
+    } else {
+      rateLimitMap.set(contextKey, { count: 1, windowStart: now });
+    }
+
     const rawKey = process.env.SCOUT_PRIVATE_KEY?.trim();
     if (!rawKey) {
-      res.status(500).json({ error: 'SCOUT_PRIVATE_KEY not configured' });
+      res.status(500).json({ error: 'Server configuration error' });
       return;
     }
 
@@ -91,18 +145,28 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       delegationManager: delegationManager as `0x${string}`,
     } as Parameters<typeof walletClient.sendTransactionWithDelegation>[0]);
 
+    if (idempotencyKey && typeof idempotencyKey === 'string') {
+      idempotencyMap.set(idempotencyKey, { txHash, ts: Date.now() });
+    }
+
     res.json({ txHash, success: true });
   } catch (error: unknown) {
     const err = error as Record<string, unknown>;
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[DelegationSpend] ERROR:', message);
+    const rawMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[DelegationSpend] ERROR:', rawMessage);
     console.error('[DelegationSpend] Error code:', err?.code);
     console.error('[DelegationSpend] Error data:', JSON.stringify(err?.data));
     console.error('[DelegationSpend] Error details:', err?.details);
     try {
       console.error('[DelegationSpend] Full error:', JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
     } catch { console.error('[DelegationSpend] Full error (non-serializable):', err); }
-    res.status(500).json({ error: message });
+
+    let safeMessage = 'Delegation spend execution failed';
+    if (rawMessage.includes('reverted')) safeMessage = 'Transaction reverted onchain';
+    else if (rawMessage.includes('insufficient')) safeMessage = 'Insufficient funds or allowance';
+    else if (rawMessage.includes('nonce')) safeMessage = 'Nonce conflict — please retry';
+
+    res.status(500).json({ error: safeMessage });
   }
 });
 

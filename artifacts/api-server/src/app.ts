@@ -4,7 +4,26 @@ import router from "./routes";
 
 const app: Express = express();
 
-app.use(cors());
+const allowedOriginSet = new Set<string>();
+
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean).forEach(o => allowedOriginSet.add(o));
+}
+if (process.env.REPLIT_DEV_DOMAIN) {
+  allowedOriginSet.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
+}
+
+app.use(cors({
+  origin: allowedOriginSet.size > 0
+    ? (origin, callback) => {
+        if (!origin || allowedOriginSet.has(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error('CORS: origin not allowed'));
+        }
+      }
+    : true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

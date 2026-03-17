@@ -53,12 +53,16 @@ export async function requestDelegatedPermission(
     },
   ];
 
-  console.log('[Delegation] requestExecutionPermissions payload:', JSON.stringify(permissionRequest, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+  if (import.meta.env.DEV) {
+    console.log('[Delegation] requestExecutionPermissions payload:', JSON.stringify(permissionRequest, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+  }
 
   try {
     const grantedPermissions = await walletClient.requestExecutionPermissions(permissionRequest);
 
-    console.log('[Delegation] Granted permissions:', JSON.stringify(grantedPermissions, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+    if (import.meta.env.DEV) {
+      console.log('[Delegation] Granted permissions:', JSON.stringify(grantedPermissions, (_, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+    }
 
     const firstPermission = grantedPermissions[0];
     if (!firstPermission) {
