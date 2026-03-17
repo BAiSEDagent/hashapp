@@ -1,6 +1,6 @@
-# Hashapp Design
+# Hashapp
 
-Private concept repo for Hashapp — a consumer-grade spending app for AI agents.
+Hashapp is a BYOA money app for agents — a consumer-grade control, proof, and receipt layer for agentic spending.
 
 ## Purpose
 This repo is for:
@@ -14,10 +14,10 @@ This repo is for:
 This is **not** the build repo.
 
 ## Product Thesis
-Hashapp is a beautiful app where humans fund agents, set spending rules, approve or auto-approve purchases, and verify what agents bought through clean receipts and proofs.
+Hashapp lets humans link agents, set bounded authority, approve or auto-approve actions, and verify what those agents did through clear receipts and onchain proof.
 
 ## Product Positioning
-Hashapp is not just an agent wallet manager. It is the spending app for AI agents — a consumer-grade interface for funding, approving, monitoring, and understanding agent purchases.
+Hashapp is not a generic wallet manager and not a generic swap app. It is the money app for AI agents — a consumer-grade interface for bounded authority, funding, approvals, monitoring, and proof.
 
 ## Core Problem
 People can let agents spend money, but they still lack a simple, trustworthy interface to:
@@ -47,11 +47,15 @@ Research agent.
 Design the strongest possible Synthesis submission and progressively connect the real app/proof work without losing product truth.
 
 ## Repo structure
-- `/` — docs, strategy, proof notes, decision logs
-- `/app` — cleaned integration of the Replit truth-pass app/workspace
-- `BRANCH_GUIDE.md` — what each branch is for
+- `/` — top-level product, proof, and execution docs
+- `/docs/product` — product truth, policy, UX, flows, data model
+- `/docs/proof` — what is actually proven and how the demo is framed
+- `/docs/ops` — branch truth, execution notes, handoffs
+- `/docs/strategy` — roadmap, backlog, partner strategy
+- `/partner-tracks` — partner-specific framing and submission notes
+- `/app` — integrated Replit app/workspace
 
-This repo started as docs-first. It now also contains the integrated app workspace under `app/` so product, proof, and implementation can move together.
+This repo started docs-first. It now contains both the integrated app workspace under `app/` and a cleaner docs map so product, proof, and implementation can move together without making the top level feel like a scratchpad.
 
 ## Current branch guidance
 Read `BRANCH_GUIDE.md` before assuming where active app work lives.
