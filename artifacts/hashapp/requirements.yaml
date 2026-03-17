@@ -1,0 +1,7 @@
+packages:
+  "framer-motion": "Required for smooth slide-in, collapse, and status transition animations in the demo flow"
+  "clsx": "Utility for conditionally joining classNames"
+  "tailwind-merge": "Utility for merging tailwind classes without style conflicts"
+notes:
+  - "This is a frontend-only prototype. All data and timing events are simulated in DemoContext.tsx."
+  - "The app uses a strict mobile-first max-width container (430px) to simulate a mobile app experience on desktop."

@@ -1,0 +1,78 @@
+One narrow task. Read the repo first.
+
+Pull the latest integration/truth-pass-clean branch from https://github.com/BAiSEDagent/hashapp-design.
+
+Read these files before doing anything:
+app/STATUS.md
+proof/README.md
+proof/proof-output.json
+app/artifacts/hashapp/src/pages/Activity.tsx
+app/artifacts/hashapp/src/context/DemoContext.tsx
+app/artifacts/hashapp/src/config/wallet.ts
+
+The task
+Wire one real Grant Permission call from the UI into the proven Base Sepolia spend-permission path.
+
+Exact contract
+Address: 0xf85210B21cC50302F477BA56686d2019dC9b67Ad
+Network: Base Sepolia (chainId 84532)
+Use the approve(spendPermission) function — not approveWithSignature
+Full ABI is in proof/scripts/spend-permission-proof.ts
+
+USDC address
+0x036CbD53842c5426634e7929541eC2318f3dCF7e
+
+The SpendPermission struct
+struct SpendPermission {
+address account;
+address spender;
+address token;
+uint160 allowance;
+uint48 period;
+uint48 start;
+uint48 end;
+uint256 salt;
+bytes extraData;
+}
+
+
+What to implement
+In Activity.tsx, when the user taps Grant Permission on a pending spend permission request:
+
+Use useWriteContract from wagmi
+Build the SpendPermission struct with:
+account = connected wallet address
+spender = a fixed Scout address (use 0xbf8BFDe4B42baa2F4377B8Ebc5D2602d3080a4D4 for now as demo Scout)
+token = USDC address above
+allowance = permission amount in USDC raw units (multiply by 1_000_000 for 6 decimals)
+period = 86400 (1 day)
+start = Math.floor(Date.now() / 1000)
+end = start + 3600 (1 hour for demo)
+salt = BigInt(Date.now())
+extraData = "0x"
+Call approve(spendPermission) on the contract
+On transaction confirmed: call approvePending(id, txHash) with the real tx hash
+Show a real Basescan link: https://sepolia.basescan.org/tx/[txHash]
+
+What not to do
+Do not fake the tx hash on success
+Do not approve if wallet is not connected — show a clear connect prompt instead
+Do not widen scope to other features
+Do not export the whole workspace — return only the changed files
+Output format
+Return only the changed files as copy-paste blocks:
+one block per file
+filename as header
+no other files touched
+
+How this should feel when it works
+User has wallet connected on Base Sepolia
+DataStream Pro pending request appears
+User taps Grant Permission
+Real wallet transaction prompt appears
+User confirms in wallet
+App shows: Approved — spend permission granted onchain
+Basescan link appears linking to the real tx
+Spend permission shows in Money tab
+
+That is the first real working product moment.

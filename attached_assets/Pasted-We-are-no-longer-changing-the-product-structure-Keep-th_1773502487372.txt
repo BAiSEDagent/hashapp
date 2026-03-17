@@ -1,0 +1,67 @@
+We are no longer changing the product structure. Keep the current top-level architecture:
+
+Money
+Activity
+Scout
+Rules
+
+This next pass is about product clarity and polish, not widening scope.
+
+Priority 1 — Make spend permissions first-class
+Add a visible Spend Permission concept to the product so recurring/conditional payments feel explicit, not hidden inside generic rules.
+
+Use the DataStream Pro example:
+vendor
+amount
+cadence
+active / revoked state
+clear relationship to the rule that allows or blocks it
+
+This should strengthen the “Agents that pay” story by making conditional/revocable spend permissions legible.
+
+Priority 2 — Tighten the Money tab’s non-custodial language
+Make sure the Money tab never implies Hashapp holds user funds.
+
+Prefer language like:
+Available for Scout
+Allocated to Scout
+Protected by your rules
+Connected wallet
+Increase Scout’s spending limit
+Adjust Scout’s budget
+
+Avoid language that sounds like funds are deposited into Hashapp or stored by the app.
+
+Priority 3 — Activity polish
+Push the Activity screen further without changing its structure:
+stronger hierarchy between intent, status, and amount
+tighter wrapping in pending request copy
+richer row rhythm
+premium motion / micro-interactions
+trusted destination rail should feel clearly trusted, not generic
+
+The feed is still the hero of the product.
+
+Priority 4 — ENS / Basename identity polish
+Where helpful, use human-readable identity treatment for:
+trusted destinations
+Scout identity
+receipt proof context
+search results
+
+This should improve trust/readability without turning ENS into a loud feature.
+
+Priority 5 — Rules polish only
+Do not redesign the Rules screen. Just make it feel less template-like:
+more intentional toggle styling
+slightly stronger hierarchy
+more premium spacing/copy treatment
+
+Do not do
+do not add new top-level tabs
+do not widen scope
+do not add backend complexity
+do not re-architect the app
+do not turn the UI into a crypto dashboard
+
+Goal: make the current prototype feel more inevitable, more trustworthy, and more clearly aligned with “scoped spending permissions + auditable proof.”

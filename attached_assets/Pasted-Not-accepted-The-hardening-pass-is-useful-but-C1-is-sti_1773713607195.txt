@@ -1,0 +1,73 @@
+Not accepted.
+The hardening pass is useful, but C1 is still open, and that is not acceptable.
+
+Required to close this task
+Implement caller authorization on /api/delegation/spend.
+Use these skill lanes
+ethskills
+MetaMask / Smart Accounts Kit / advanced permissions skill
+any relevant ERC-7710 / ERC-7715 references already in repo
+
+Minimum acceptable version:
+server-issued auth token or signed request proof
+bind the caller to the specific delegation / permissionsContext
+reject requests that are not from the authorized delegator session
+keep recipient allowlist, rate limiting, idempotency, and sanitized errors in place
+
+Requirement
+The endpoint must no longer execute delegated spends for an arbitrary caller who possesses a permissionsContext.
+
+Deliverable
+Return exactly:
+auth model implemented
+files changed
+commit hash
+branch
+pushed or not
+deployed yes/no
+what attack path is now blocked
+
+Do not mark complete until C1 is closed.
+
+---
+
+That is the correct escalation.
+Yes — strike that whole section.
+
+Reframe it as:
+
+Still open and not acceptable
+no auth model on /api/delegation/spend
+no expiry UI / expiry-state handling
+frontend/backend SDK mismatch risk
+hardcoded onchainVerified / no revocation check
+
+Severity
+Must close now
+auth model
+
+Must either close now or explicitly label in UI/docs before judging
+expiry handling / expiry truth
+hardcoded onchainVerified
+revocation-state truth
+
+Must at least document and pin
+frontend/backend SDK mismatch risk
+
+If you want, send him this exact correction:
+
+---
+
+Correction: these are not “acceptable for now.”
+
+Open and not acceptable
+no auth model on /api/delegation/spend
+no expiry-state handling in UI
+hardcoded onchainVerified without revocation check
+frontend/backend SDK mismatch risk left undocumented
+Required action
+close auth now
+either close expiry/revocation truth now or clearly surface the limitation in UI/docs
+document SDK version split and why it is safe today
+
+Do not present this as demo-safe until the open auth issue is fixed.
