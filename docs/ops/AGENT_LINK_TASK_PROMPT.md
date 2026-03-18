@@ -26,11 +26,16 @@ The goal is a clean BYOA linkage layer between:
 ## Scope
 Build the smallest useful v1:
 
-### 1. Link Agent UI
-Add a lightweight **Link Agent** flow that captures:
+### 1. Empty state + Link Agent UI
+If no agent is linked, render an honest empty state:
+- headline: `No Agent Connected`
+- subtext: `Connect an agent to request payments, use private reasoning, and act within your spending rules.`
+- primary CTA: `Connect Agent`
+
+Then add a lightweight **Link Agent** flow that captures:
 - agent name
-- agent type
-- execution identity / address
+- agent type / role
+- execution identity / address or ENS
 - optional endpoint / callback
 - disclosure policy summary
 
@@ -41,6 +46,8 @@ Show:
 - agent type
 - disclosure policy
 - whether private reasoning is enabled
+- `Edit Agent`
+- `Disconnect Agent`
 
 ### 3. Structured request model
 Add a first-pass request model in demo state / UI:
