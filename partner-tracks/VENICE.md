@@ -36,6 +36,37 @@ Scout can use private reasoning for:
 - unusual request escalation
 - confidence-based ask / allow / block recommendations
 
+## Economic model (important)
+Venice should not feel like a permanent hidden subsidy.
+A stronger product model is to treat private reasoning as an optional paid capability.
+
+### Direction
+When **Private Review** is enabled, Hashapp can route the Venice analysis call through an **x402-gated endpoint**.
+That means:
+- private reasoning becomes a real paid feature
+- the toggle controls actual capability, not cosmetic state
+- Hashapp is not forced to silently eat inference cost forever
+
+### Product meaning
+- **Off** → no private reasoning, no Venice cost
+- **On** → private reasoning available, billed capability / credits path
+
+### Best framing
+Do not call this "Venice Mode."
+Call it:
+- **Private Review**
+- or **Enable private review**
+
+And describe the economics plainly:
+- private reasoning may require credits
+- or private reasoning is billed through an x402 path
+
+### Build order
+1. First prove one real Venice-backed action
+2. Then add x402 gating so the feature becomes economically real
+
+Do not let the x402 integration delay the first Venice proof loop.
+
 ## Best UI placement
 Put **Private Review** inside:
 - Rules screen
