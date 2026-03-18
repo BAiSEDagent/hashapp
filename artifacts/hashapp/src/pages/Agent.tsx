@@ -6,6 +6,7 @@ import type { ConnectedAgent } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
+import { AccountSheet } from '@/components/AccountSheet';
 import { USE_METAMASK_DELEGATION } from '@/config/delegation';
 import {
   SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -221,6 +222,7 @@ function AgentActiveState({
   onEdit: () => void;
   onDisconnect: () => void;
 }) {
+  const [showAccountSheet, setShowAccountSheet] = useState(false);
   const { rules, feed, spendPermissions, connectedAgent, recordScoutSwapAndPay } = useDemo();
   const { address, isConnected } = useAccount();
   const [, setLocation] = useLocation();
@@ -364,11 +366,17 @@ function AgentActiveState({
           <div className="space-y-3">
             <StateRow label="Status" value="Active" valueColor="text-emerald-400" />
             {agentAddress && <StateRow label="Spender address" value={agentAddressShort} mono />}
-            <StateRow 
-              label="Spending from" 
-              value={isConnected && truncatedAddress ? truncatedAddress : 'No wallet connected'} 
-              valueColor={isConnected ? undefined : 'text-muted-foreground/40'}
-            />
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-[12px] text-muted-foreground/40">Spending from</span>
+              {isConnected && truncatedAddress ? (
+                <button onClick={() => setShowAccountSheet(true)} className="text-[12px] font-mono text-foreground/70 hover:text-foreground/90 underline decoration-muted-foreground/20 underline-offset-2 transition-colors">
+                  {truncatedAddress}
+                </button>
+              ) : (
+                <span className="text-[12px] text-muted-foreground/40">No wallet connected</span>
+              )}
+            </div>
+            {showAccountSheet && <AccountSheet onClose={() => setShowAccountSheet(false)} />}
             <StateRow label="Settlement" value="USDC on Base" />
             <StateRow
               label="Authority model"

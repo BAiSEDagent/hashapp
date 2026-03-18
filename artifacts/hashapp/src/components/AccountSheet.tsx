@@ -51,7 +51,8 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
 
           <div className="bg-zinc-900/60 rounded-xl px-4 py-3 border border-zinc-700/20">
             <p className="text-[10px] text-muted-foreground/35 font-medium mb-1">Wallet address</p>
-            <p className="text-[13px] font-mono text-foreground/90 tracking-wide break-all leading-relaxed">{address}</p>
+            <p className="text-[14px] font-mono text-foreground/90 tracking-wide mb-1.5">{`${address.slice(0, 6)}...${address.slice(-4)}`}</p>
+            <p className="text-[10px] font-mono text-muted-foreground/40 break-all leading-relaxed">{address}</p>
           </div>
         </div>
 

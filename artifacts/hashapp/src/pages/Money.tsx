@@ -6,6 +6,7 @@ import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
 import { WalletAddressChip } from '@/components/WalletAddressChip';
+import { AccountSheet } from '@/components/AccountSheet';
 import { useLocation } from 'wouter';
 import { USE_METAMASK_DELEGATION } from '@/config/delegation';
 import { executeDelegationSpend } from '@/lib/delegationSpend';
@@ -31,6 +32,7 @@ export default function Money() {
   const agentName = connectedAgent?.name ?? 'your agent';
   const { address, isConnected, chain } = useAccount();
   const [, setLocation] = useLocation();
+  const [showAccountSheet, setShowAccountSheet] = useState(false);
 
   const { data: usdcBalanceRaw } = useReadContract({
     address: USDC_BASE_SEPOLIA,
@@ -86,8 +88,9 @@ export default function Money() {
               {usdcBalance !== null ? `$${usdcBalance}` : '—'}
             </h2>
             <p className="text-[12px] text-muted-foreground/40">
-              USDC · {chain?.name || 'Base Sepolia'} · {truncatedAddress}
+              USDC · {chain?.name || 'Base Sepolia'} · <button onClick={() => setShowAccountSheet(true)} className="text-muted-foreground/50 hover:text-muted-foreground/70 transition-colors underline decoration-muted-foreground/20 underline-offset-2 font-mono">{truncatedAddress}</button>
             </p>
+            {showAccountSheet && <AccountSheet onClose={() => setShowAccountSheet(false)} />}
 
             {activePermissions.length > 0 && (
               <div className="mt-5 pt-4 border-t border-white/[0.06]">
