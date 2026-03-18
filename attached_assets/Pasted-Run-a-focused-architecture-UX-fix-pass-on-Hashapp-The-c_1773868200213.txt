@@ -1,0 +1,134 @@
+Run a focused architecture + UX fix pass on Hashapp. The current connection model is still broken and confusing.
+
+Core truth
+There should be only one real connection workflow:
+Connect Wallet
+
+Everything else after that is profile/setup state, not another connection.
+
+Current problems to fix
+Address tap behavior is broken
+Right now, tapping the connected address on Money sends the user back to the landing page and traps them there.
+That is wrong.
+No disconnect path
+There is no visible, intentional disconnect option.
+
+State coherence is still broken
+If the user is connected, the app should know that globally.
+If the user is connected on Money, other surfaces should not behave like the app is disconnected.
+
+Landing page CTA stack is wrong
+Do not show three raw wallet buttons.
+Use one primary CTA:
+Connect Wallet
+
+Agent setup is being confused with connection
+Do not build a second connection workflow.
+After wallet connect, agent setup should feel like profile/setup, not auth.
+
+Required architecture
+Global wallet state
+Create one source of truth for:
+isWalletConnected
+connectedWalletAddress
+wallet connector/account info
+
+This state should drive the whole app.
+
+Agent setup state
+Separate from wallet connection:
+agentName
+agentRole
+optional advanced identity fields later
+
+This is setup/profile state, not wallet auth.
+
+Required UX changes
+Landing page
+If disconnected:
+show landing page
+one primary CTA: Connect Wallet
+do not expose raw connector names/buttons at first touch
+
+Connected state
+Once wallet is connected:
+the landing page should disappear
+bottom nav should be available
+connection should be recognized across all tabs
+
+Account menu / sheet
+Tapping the connected address should open a proper account menu/sheet, not redirect to landing.
+
+Minimum options:
+wallet address
+copy address
+disconnect wallet
+
+Disconnect flow
+Add a real, intentional disconnect path.
+Disconnect should:
+clear wallet-connected state
+return user to landing page cleanly
+not trap them in a dead-end state
+
+Agent setup
+If no agent profile is configured after wallet connection:
+show a clear setup state on Agent page
+this should not look like another wallet connection
+it should look like naming/configuring your linked agent
+
+Use language like:
+No Agent Connected
+Set up your agent
+Name your agent
+Role / Description
+
+Do not force a second “connect” metaphor unless absolutely necessary.
+
+Important product rules
+Only one actual connect flow: wallet
+Agent setup is not a second wallet connection
+Keep Agent as the nav label
+Keep Rules as the policy page
+Keep DeFi small and subordinate
+Keep Venice as a capability, not a global mode
+
+Design direction
+Target:
+Cash App-grade crypto UX
+
+Meaning:
+one clear CTA
+no state confusion
+no dead ends
+clean account handling
+simple, premium, high-trust flow
+
+Deliverable
+Return exactly:
+architecture changes made
+files changed
+new global wallet state fields
+new account menu/disconnect flow
+screenshots of:
+landing page
+connected Money state
+address/account sheet
+disconnect flow
+Agent setup state after wallet connect
+commit hash
+branch
+pushed or not
+
+Success condition
+A user should immediately understand:
+I connect my wallet once
+the whole app knows I’m connected
+clicking my address opens account controls
+disconnect is clean
+agent setup is profile/setup, not another broken connection flow
+
+Do not add more features until this is coherent.
+---
+
+That’s the full fix prompt.
