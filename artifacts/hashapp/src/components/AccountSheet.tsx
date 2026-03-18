@@ -86,7 +86,7 @@ export function AccountSheet({ onClose }: { onClose: () => void }) {
                 <AlertTriangle size={14} className="text-rose-400/80" />
                 <span className="text-[13px] font-medium text-rose-400/90">Disconnect wallet?</span>
               </div>
-              <p className="text-[11px] text-muted-foreground/50 mb-3">You'll return to the landing page. Agent setup and activity will be cleared.</p>
+              <p className="text-[11px] text-muted-foreground/50 mb-3">You'll return to the landing page and need to reconnect to use the app.</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setConfirmingDisconnect(false)}
