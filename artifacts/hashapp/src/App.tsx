@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import { Toaster } from "@/components/ui/toaster";
@@ -24,6 +24,7 @@ function Router() {
       <MobileLayout>
         <Switch>
           <Route path="/" component={Money} />
+          <Route path="/money">{() => <Redirect to="/" />}</Route>
           <Route path="/activity" component={Activity} />
           <Route path="/receipt/:id" component={Receipt} />
           <Route path="/rules" component={Rules} />
