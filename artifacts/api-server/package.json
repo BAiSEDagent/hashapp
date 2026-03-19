@@ -9,13 +9,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@metamask/smart-accounts-kit": "0.3.0",
+    "@metamask/smart-accounts-kit": "0.4.0-beta.1",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
     "express": "^5",
+    "openai": "^6.29.0",
     "viem": "^2.47.4"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'wouter';
-import { Activity, Bot, ShieldCheck, DollarSign } from 'lucide-react';
+import { Activity, Bot, ShieldCheck, DollarSign, ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
@@ -10,11 +10,12 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
 
-        <nav className="absolute bottom-0 w-full h-[72px] bg-background/85 backdrop-blur-xl border-t border-white/[0.06] flex items-center justify-around px-6 z-50">
-          <NavItem href="/money" icon={<DollarSign size={22} />} label="Money" />
-          <NavItem href="/" icon={<Activity size={22} />} label="Activity" />
-          <NavItem href="/agent" icon={<Bot size={22} />} label="Scout" />
-          <NavItem href="/rules" icon={<ShieldCheck size={22} />} label="Rules" />
+        <nav className="absolute bottom-0 w-full h-[72px] bg-background/85 backdrop-blur-xl border-t border-white/[0.06] flex items-center justify-around px-4 z-50">
+          <NavItem href="/" icon={<DollarSign size={20} />} label="Money" />
+          <NavItem href="/activity" icon={<Activity size={20} />} label="Activity" />
+          <NavItem href="/defi" icon={<ArrowLeftRight size={20} />} label="DeFi" />
+          <NavItem href="/agent" icon={<Bot size={20} />} label="Agent" />
+          <NavItem href="/rules" icon={<ShieldCheck size={20} />} label="Rules" />
         </nav>
       </div>
     </div>
@@ -30,7 +31,7 @@ function NavItem({ href, icon, label }: { href: string, icon: React.ReactNode, l
       href={href} 
       data-testid={`nav-${label.toLowerCase()}`}
       className={cn(
-        "flex flex-col items-center justify-center w-14 gap-1 transition-all duration-200",
+        "flex flex-col items-center justify-center w-12 gap-1 transition-all duration-200",
         isActive ? "text-primary" : "text-muted-foreground/50 hover:text-muted-foreground/80"
       )}
     >
@@ -40,7 +41,7 @@ function NavItem({ href, icon, label }: { href: string, icon: React.ReactNode, l
       )}>
         {icon}
       </div>
-      <span className="text-[9px] font-medium tracking-wider uppercase">{label}</span>
+      <span className="text-[8px] font-medium tracking-wider uppercase">{label}</span>
     </Link>
   );
 }

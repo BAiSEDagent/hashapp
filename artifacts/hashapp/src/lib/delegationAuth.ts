@@ -5,19 +5,40 @@ export interface RegisterDelegationResult {
 
 export type SignMessageFn = (args: { message: string }) => Promise<`0x${string}`>;
 
-const CHALLENGE_PREFIX = 'hashapp-delegation-register';
-
 export async function registerDelegation(
   permissionsContext: `0x${string}`,
   delegatorAddress: `0x${string}`,
   signMessage: SignMessageFn,
 ): Promise<RegisterDelegationResult> {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const message = `${CHALLENGE_PREFIX}:${permissionsContext.toLowerCase()}:${delegatorAddress}:${timestamp}`;
-
-  const signature = await signMessage({ message });
-
   const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+
+  const challengeResponse = await fetch(`${apiBase}/delegation/challenge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      permissionsContext,
+      delegatorAddress,
+    }),
+  });
+
+  if (!challengeResponse.ok) {
+    let errorMsg = 'Failed to obtain challenge';
+    try {
+      const body = await challengeResponse.json();
+      if (body?.error) errorMsg = body.error;
+    } catch {
+      errorMsg = `Challenge request failed (HTTP ${challengeResponse.status})`;
+    }
+    throw new Error(errorMsg);
+  }
+
+  const { challenge, nonce } = await challengeResponse.json();
+  if (!challenge || !nonce) {
+    throw new Error('Server returned invalid challenge');
+  }
+
+  const signature = await signMessage({ message: challenge });
+
   const response = await fetch(`${apiBase}/delegation/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,7 +46,7 @@ export async function registerDelegation(
       permissionsContext,
       delegatorAddress,
       signature,
-      message,
+      challengeId: nonce,
     }),
   });
 

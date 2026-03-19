@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Bot } from 'lucide-react';
 import { useDemo } from '@/context/DemoContext';
 
 export function AgentAvatar({
@@ -11,7 +11,7 @@ export function AgentAvatar({
   editable?: boolean;
   className?: string;
 }) {
-  const { agentAvatarUrl, setAgentAvatarUrl } = useDemo();
+  const { agentAvatarUrl, setAgentAvatarUrl, connectedAgent } = useDemo();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const sizeClasses = {
@@ -20,6 +20,10 @@ export function AgentAvatar({
     lg: 'w-14 h-14 text-[18px]',
     xl: 'w-20 h-20 text-[26px]',
   };
+
+  const iconSizes = { sm: 10, md: 16, lg: 20, xl: 28 };
+
+  const initial = connectedAgent?.name ? connectedAgent.name.charAt(0).toUpperCase() : null;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,15 +46,19 @@ export function AgentAvatar({
       {agentAvatarUrl ? (
         <img
           src={agentAvatarUrl}
-          alt="Scout"
+          alt={connectedAgent?.name ?? 'Agent'}
           className="w-full h-full object-cover"
         />
+      ) : initial ? (
+        <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 border border-zinc-700/60 flex items-center justify-center rounded-full">
+          <span className="font-bold text-zinc-300">{initial}</span>
+        </div>
       ) : (
         <div className="w-full h-full bg-gradient-to-br from-zinc-700 to-zinc-900 border border-zinc-700/60 flex items-center justify-center rounded-full">
-          <span className="font-bold text-zinc-300">S</span>
+          <Bot size={iconSizes[size]} className="text-zinc-500" />
         </div>
       )}
-      {editable && (
+      {editable && connectedAgent && (
         <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer rounded-full">
           <Camera size={size === 'xl' ? 20 : size === 'lg' ? 16 : 12} className="text-white/80" />
         </div>
@@ -58,7 +66,7 @@ export function AgentAvatar({
     </div>
   );
 
-  if (!editable) return avatar;
+  if (!editable || !connectedAgent) return avatar;
 
   return (
     <>

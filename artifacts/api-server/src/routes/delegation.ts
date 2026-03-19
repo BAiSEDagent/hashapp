@@ -1,9 +1,12 @@
 import { Router } from 'express';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual, randomBytes } from 'crypto';
 import { createWalletClient, http, encodeFunctionData, erc20Abi, parseUnits, isAddress, verifyMessage, decodeAbiParameters, getAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { baseSepolia } from 'viem/chains';
 import { erc7710WalletActions } from '@metamask/smart-accounts-kit/actions';
+import { db } from '@workspace/db';
+import { delegationChallenges, delegationContextOwners, delegationRateLimits, delegationIdempotency } from '@workspace/db/schema';
+import { eq, lt, and } from 'drizzle-orm';
 
 const delegationRouter = Router();
 
@@ -18,40 +21,32 @@ const ALLOWED_RECIPIENTS: Record<string, boolean> = {
 
 const ALLOWED_DELEGATION_MANAGER = '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3';
 
-const MAX_SPEND_AMOUNT = 1000;
+const MAX_SPEND_AMOUNT_MICRO = 1_000_000_000n;
 const SPEND_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_PER_CONTEXT = 5;
-const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 
 const IDEMPOTENCY_TTL_MS = 300_000;
-const idempotencyMap = new Map<string, { txHash: string; ts: number }>();
 
 const CHALLENGE_TTL_SECONDS = 120;
-const CHALLENGE_PREFIX = 'hashapp-delegation-register';
-const usedChallenges = new Map<string, number>();
 
-const contextOwnerRegistry = new Map<string, { owner: string; registeredAt: number }>();
+const USDC_AMOUNT_PATTERN = /^\d+(\.\d{1,6})?$/;
 
-function pruneExpiredEntries() {
+async function pruneExpiredEntries() {
   const now = Date.now();
   const nowSec = Math.floor(now / 1000);
-  for (const [key, entry] of idempotencyMap) {
-    if (now - entry.ts > IDEMPOTENCY_TTL_MS) idempotencyMap.delete(key);
-  }
-  for (const [key, entry] of rateLimitMap) {
-    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) rateLimitMap.delete(key);
-  }
-  for (const [msg, ts] of usedChallenges) {
-    if (nowSec - ts > CHALLENGE_TTL_SECONDS * 2) usedChallenges.delete(msg);
-  }
-  for (const [ctx, entry] of contextOwnerRegistry) {
-    if (nowSec - entry.registeredAt > SPEND_TOKEN_TTL_SECONDS) contextOwnerRegistry.delete(ctx);
+  try {
+    await db.delete(delegationIdempotency).where(lt(delegationIdempotency.createdAt, now - IDEMPOTENCY_TTL_MS));
+    await db.delete(delegationRateLimits).where(lt(delegationRateLimits.windowStart, now - RATE_LIMIT_WINDOW_MS));
+    await db.delete(delegationChallenges).where(lt(delegationChallenges.createdAt, nowSec - CHALLENGE_TTL_SECONDS * 2));
+    await db.delete(delegationContextOwners).where(lt(delegationContextOwners.registeredAt, nowSec - SPEND_TOKEN_TTL_SECONDS));
+  } catch (err) {
+    console.error('[DelegationPrune] Error:', err instanceof Error ? err.message : err);
   }
 }
 
-setInterval(pruneExpiredEntries, 60_000);
+setInterval(() => { pruneExpiredEntries(); }, 60_000);
 
 const DELEGATION_TUPLE_TYPE = {
   type: 'tuple[]' as const,
@@ -85,8 +80,16 @@ function extractDelegatorFromContext(permissionsContext: `0x${string}`): string 
 }
 
 function getHmacSecret(): string {
+  const dedicated = process.env.DELEGATION_AUTH_SECRET?.trim();
+  if (dedicated) {
+    return dedicated;
+  }
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('DELEGATION_AUTH_SECRET is required in production. Do not rely on fallback.');
+  }
   const raw = process.env.SCOUT_PRIVATE_KEY?.trim();
-  if (!raw) throw new Error('SCOUT_PRIVATE_KEY not configured');
+  if (!raw) throw new Error('Neither DELEGATION_AUTH_SECRET nor SCOUT_PRIVATE_KEY configured');
+  console.warn('[DelegationAuth] DELEGATION_AUTH_SECRET not set — falling back to derived secret from SCOUT_PRIVATE_KEY. Set DELEGATION_AUTH_SECRET for production.');
   return createHmac('sha256', 'hashapp-delegation-auth-v1').update(raw).digest('hex');
 }
 
@@ -99,6 +102,7 @@ function createSpendToken(permissionsContext: string, delegatorAddress: string, 
 }
 
 function validateSpendToken(token: string, permissionsContext: string): { valid: boolean; error?: string; delegatorAddress?: string } {
+  const secret = getHmacSecret();
   try {
     const decoded = JSON.parse(Buffer.from(token, 'base64url').toString('utf-8'));
     const { ctx, addr, iat, sig } = decoded;
@@ -116,7 +120,6 @@ function validateSpendToken(token: string, permissionsContext: string): { valid:
       return { valid: false, error: 'Token does not match permissionsContext' };
     }
 
-    const secret = getHmacSecret();
     const payload = `${ctx}:${addr}:${iat}`;
     const expectedSig = createHmac('sha256', secret).update(payload).digest('hex');
 
@@ -132,17 +135,12 @@ function validateSpendToken(token: string, permissionsContext: string): { valid:
   }
 }
 
-delegationRouter.post('/delegation/register', async (req, res) => {
+delegationRouter.post('/delegation/challenge', async (req, res) => {
   try {
-    const { permissionsContext, delegatorAddress, signature, message } = req.body;
+    const { permissionsContext, delegatorAddress } = req.body;
 
     if (!permissionsContext || !delegatorAddress) {
       res.status(400).json({ error: 'Missing required fields: permissionsContext, delegatorAddress' });
-      return;
-    }
-
-    if (!signature || !message) {
-      res.status(401).json({ error: 'Missing wallet signature' });
       return;
     }
 
@@ -156,38 +154,92 @@ delegationRouter.post('/delegation/register', async (req, res) => {
       return;
     }
 
-    const expectedPattern = new RegExp(
-      `^${CHALLENGE_PREFIX}:0x[0-9a-f]+:0x[0-9a-fA-F]{40}:(\\d+)$`
-    );
-    const match = message.match(expectedPattern);
-    if (!match) {
-      res.status(401).json({ error: 'Invalid challenge format' });
+    const nonce = randomBytes(32).toString('hex');
+    const nowSec = Math.floor(Date.now() / 1000);
+    const challenge = `hashapp-delegation-register:${nonce}:${permissionsContext.toLowerCase()}:${delegatorAddress.toLowerCase()}:${nowSec}`;
+
+    await db.insert(delegationChallenges).values({
+      nonce,
+      permissionsContext: permissionsContext.toLowerCase(),
+      delegatorAddress: delegatorAddress.toLowerCase(),
+      createdAt: nowSec,
+      used: false,
+    });
+
+    res.json({
+      challenge,
+      nonce,
+      expiresAt: nowSec + CHALLENGE_TTL_SECONDS,
+    });
+  } catch (error: unknown) {
+    const rawMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[DelegationChallenge] ERROR:', rawMessage);
+    res.status(500).json({ error: 'Failed to issue challenge' });
+  }
+});
+
+delegationRouter.post('/delegation/register', async (req, res) => {
+  try {
+    const { permissionsContext, delegatorAddress, signature, challengeId } = req.body;
+
+    if (!permissionsContext || !delegatorAddress) {
+      res.status(400).json({ error: 'Missing required fields: permissionsContext, delegatorAddress' });
       return;
     }
 
-    const challengeTimestamp = parseInt(match[1], 10);
+    if (!signature || !challengeId) {
+      res.status(401).json({ error: 'Missing wallet signature or challengeId' });
+      return;
+    }
+
+    if (typeof permissionsContext !== 'string' || !permissionsContext.startsWith('0x') || permissionsContext.length < 10) {
+      res.status(400).json({ error: 'Invalid permissionsContext format' });
+      return;
+    }
+
+    if (!isAddress(delegatorAddress)) {
+      res.status(400).json({ error: 'Invalid delegatorAddress' });
+      return;
+    }
+
+    const [challengeRow] = await db
+      .delete(delegationChallenges)
+      .where(
+        and(
+          eq(delegationChallenges.nonce, challengeId),
+          eq(delegationChallenges.used, false),
+        ),
+      )
+      .returning();
+
+    if (!challengeRow) {
+      res.status(401).json({ error: 'Invalid, expired, or already-used challenge' });
+      return;
+    }
+
     const nowSec = Math.floor(Date.now() / 1000);
-    if (challengeTimestamp > nowSec || nowSec - challengeTimestamp > CHALLENGE_TTL_SECONDS) {
+    if (nowSec - challengeRow.createdAt > CHALLENGE_TTL_SECONDS) {
       res.status(401).json({ error: 'Challenge expired' });
       return;
     }
 
-    const expectedMessage = `${CHALLENGE_PREFIX}:${permissionsContext.toLowerCase()}:${delegatorAddress}:${challengeTimestamp}`;
-    if (message !== expectedMessage) {
-      res.status(401).json({ error: 'Challenge does not match request' });
+    if (challengeRow.permissionsContext !== permissionsContext.toLowerCase()) {
+      res.status(401).json({ error: 'Challenge does not match permissionsContext' });
       return;
     }
 
-    if (usedChallenges.has(message)) {
-      res.status(401).json({ error: 'Challenge already used' });
+    if (challengeRow.delegatorAddress !== delegatorAddress.toLowerCase()) {
+      res.status(401).json({ error: 'Challenge does not match delegatorAddress' });
       return;
     }
+
+    const expectedMessage = `hashapp-delegation-register:${challengeId}:${permissionsContext.toLowerCase()}:${delegatorAddress.toLowerCase()}:${challengeRow.createdAt}`;
 
     let recoveredValid = false;
     try {
       recoveredValid = await verifyMessage({
         address: delegatorAddress as `0x${string}`,
-        message,
+        message: expectedMessage,
         signature: signature as `0x${string}`,
       });
     } catch {
@@ -199,8 +251,6 @@ delegationRouter.post('/delegation/register', async (req, res) => {
       return;
     }
 
-    usedChallenges.set(message, nowSec);
-
     const embeddedDelegator = extractDelegatorFromContext(permissionsContext as `0x${string}`);
     if (embeddedDelegator) {
       if (embeddedDelegator !== delegatorAddress.toLowerCase()) {
@@ -210,14 +260,16 @@ delegationRouter.post('/delegation/register', async (req, res) => {
     }
 
     const ctxKey = permissionsContext.toLowerCase();
-    const existingOwner = contextOwnerRegistry.get(ctxKey);
+    const [existingOwner] = await db.select().from(delegationContextOwners).where(eq(delegationContextOwners.contextKey, ctxKey)).limit(1);
+
     if (existingOwner) {
       if (existingOwner.owner !== delegatorAddress.toLowerCase()) {
         res.status(403).json({ error: 'Context already bound to a different owner' });
         return;
       }
     } else {
-      contextOwnerRegistry.set(ctxKey, {
+      await db.insert(delegationContextOwners).values({
+        contextKey: ctxKey,
         owner: delegatorAddress.toLowerCase(),
         registeredAt: Math.floor(Date.now() / 1000),
       });
@@ -262,7 +314,7 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     }
 
     const ctxKey = permissionsContext.toLowerCase();
-    const registeredOwner = contextOwnerRegistry.get(ctxKey);
+    const [registeredOwner] = await db.select().from(delegationContextOwners).where(eq(delegationContextOwners.contextKey, ctxKey)).limit(1);
     if (!registeredOwner) {
       res.status(403).json({ error: 'Context not registered' });
       return;
@@ -302,14 +354,29 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       return;
     }
 
-    const amount = Number(amountUsdc);
-    if (isNaN(amount) || amount <= 0 || amount > MAX_SPEND_AMOUNT) {
-      res.status(400).json({ error: `Amount must be between 0 and ${MAX_SPEND_AMOUNT} USDC` });
+    if (typeof amountUsdc !== 'string') {
+      res.status(400).json({ error: 'amountUsdc must be a string (e.g. "5" or "5.50")' });
+      return;
+    }
+    if (!USDC_AMOUNT_PATTERN.test(amountUsdc)) {
+      res.status(400).json({ error: 'amountUsdc must be a decimal string (e.g. "5" or "5.50")' });
+      return;
+    }
+    const amountStr = amountUsdc;
+    let amountMicro: bigint;
+    try {
+      amountMicro = parseUnits(amountStr, 6);
+    } catch {
+      res.status(400).json({ error: 'amountUsdc could not be parsed as USDC amount' });
+      return;
+    }
+    if (amountMicro <= 0n || amountMicro > MAX_SPEND_AMOUNT_MICRO) {
+      res.status(400).json({ error: 'Amount must be between 0 and 1000 USDC' });
       return;
     }
 
     if (idempotencyKey && typeof idempotencyKey === 'string') {
-      const existing = idempotencyMap.get(idempotencyKey);
+      const [existing] = await db.select().from(delegationIdempotency).where(eq(delegationIdempotency.key, idempotencyKey)).limit(1);
       if (existing) {
         res.json({ txHash: existing.txHash, success: true, deduplicated: true });
         return;
@@ -318,19 +385,20 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
 
     const now = Date.now();
     const contextKey = permissionsContext.slice(0, 66).toLowerCase();
-    const rateEntry = rateLimitMap.get(contextKey);
+    const [rateEntry] = await db.select().from(delegationRateLimits).where(eq(delegationRateLimits.contextKey, contextKey)).limit(1);
+
     if (rateEntry) {
       if (now - rateEntry.windowStart < RATE_LIMIT_WINDOW_MS) {
         if (rateEntry.count >= RATE_LIMIT_MAX_PER_CONTEXT) {
           res.status(429).json({ error: 'Rate limit exceeded. Try again later.' });
           return;
         }
-        rateEntry.count++;
+        await db.update(delegationRateLimits).set({ count: rateEntry.count + 1 }).where(eq(delegationRateLimits.contextKey, contextKey));
       } else {
-        rateLimitMap.set(contextKey, { count: 1, windowStart: now });
+        await db.update(delegationRateLimits).set({ count: 1, windowStart: now }).where(eq(delegationRateLimits.contextKey, contextKey));
       }
     } else {
-      rateLimitMap.set(contextKey, { count: 1, windowStart: now });
+      await db.insert(delegationRateLimits).values({ contextKey, count: 1, windowStart: now });
     }
 
     const rawKey = process.env.SCOUT_PRIVATE_KEY?.trim();
@@ -353,7 +421,7 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     const calldata = encodeFunctionData({
       abi: erc20Abi,
       functionName: 'transfer',
-      args: [recipient as `0x${string}`, parseUnits(amount.toFixed(6), 6)],
+      args: [recipient as `0x${string}`, parseUnits(amountStr, 6)],
     });
 
     const txHash = await walletClient.sendTransactionWithDelegation({
@@ -366,7 +434,7 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     } as Parameters<typeof walletClient.sendTransactionWithDelegation>[0]);
 
     if (idempotencyKey && typeof idempotencyKey === 'string') {
-      idempotencyMap.set(idempotencyKey, { txHash, ts: Date.now() });
+      await db.insert(delegationIdempotency).values({ key: idempotencyKey, txHash, createdAt: Date.now() });
     }
 
     console.log('[DelegationSpend] SUCCESS for delegator:', tokenValidation.delegatorAddress?.slice(0, 10) + '...', 'txHash:', txHash);

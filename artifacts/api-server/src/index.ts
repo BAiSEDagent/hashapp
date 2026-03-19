@@ -1,5 +1,9 @@
 import app from "./app";
 
+if (process.env.NODE_ENV === 'production' && !process.env.DELEGATION_AUTH_SECRET?.trim()) {
+  throw new Error('DELEGATION_AUTH_SECRET is required in production. Server cannot start without it.');
+}
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {

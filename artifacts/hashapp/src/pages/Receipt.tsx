@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useRoute, Link } from 'wouter';
-import { X, ExternalLink, Loader2, Zap } from 'lucide-react';
+import { X, ExternalLink, Loader2, Zap, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useTransactionReceipt, useBlock, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
-import { USE_METAMASK_DELEGATION, SCOUT_SESSION_ADDRESS } from '@/config/delegation';
+import { USE_METAMASK_DELEGATION, DELEGATION_RECIPIENT_ADDRESS } from '@/config/delegation';
 import { executeDelegationSpend } from '@/lib/delegationSpend';
 import {
   SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -16,7 +16,7 @@ import { TruthBadge } from '@/components/TruthBadge';
 
 export default function Receipt() {
   const [, params] = useRoute('/receipt/:id');
-  const { feed, spendPermissions, recordDelegationSpend } = useDemo();
+  const { feed, spendPermissions, recordDelegationSpend, connectedAgent } = useDemo();
   const [isSpending, setIsSpending] = useState(false);
   const [spendError, setSpendError] = useState<string | null>(null);
   const [spendTxHash, setSpendTxHash] = useState<string | null>(null);
@@ -60,15 +60,15 @@ export default function Receipt() {
         console.log('[Spend] Triggering delegated spend...', {
           permissionsContext: delegationContext.slice(0, 20) + '...',
           delegationManager: delegationMgr,
-          recipient: SCOUT_SESSION_ADDRESS,
-          amountUsdc: 5,
+          recipient: DELEGATION_RECIPIENT_ADDRESS,
+          amountUsdc: '5',
         });
       }
       const result = await executeDelegationSpend({
         permissionsContext: delegationContext,
         delegationManager: delegationMgr,
-        amountUsdc: 5,
-        recipient: SCOUT_SESSION_ADDRESS,
+        amountUsdc: '5',
+        recipient: DELEGATION_RECIPIENT_ADDRESS,
         spendToken: delegationSpendToken,
       });
       if (import.meta.env.DEV) {
@@ -106,18 +106,30 @@ export default function Receipt() {
     query: { enabled: !isDelegation && !!permStruct && !!item?.isReal },
   });
 
-  if (!item) return <div className="p-8 text-center mt-20 text-muted-foreground">Receipt not found</div>;
+  if (!item) return (
+    <div className="fixed inset-0 z-[100] flex justify-center bg-background">
+      <div className="w-full max-w-[430px] bg-background h-full flex flex-col relative">
+        <div className="flex items-center justify-between p-6">
+          <Link href="/activity" className="p-2 -ml-2 rounded-full hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors">
+            <X size={20} className="text-foreground/80" />
+          </Link>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center px-6 pb-20">
+          <div className="w-14 h-14 rounded-full bg-zinc-800/60 border border-zinc-700/40 flex items-center justify-center mb-4">
+            <Eye size={20} className="text-zinc-500" />
+          </div>
+          <p className="text-[15px] font-medium text-muted-foreground/60 mb-1">Receipt not found</p>
+          <p className="text-[12px] text-muted-foreground/30">This transaction may have been removed.</p>
+        </div>
+      </div>
+    </div>
+  );
 
   const isBlocked = item.status === 'BLOCKED' || item.status === 'DECLINED';
   const hasRealProof = item.isReal && item.txHash;
   const isApprovedOrAuto = item.status === 'APPROVED' || item.status === 'AUTO_APPROVED';
 
-  let onchainVerified: boolean | undefined;
-  if (isDelegation) {
-    onchainVerified = true;
-  } else {
-    onchainVerified = isApprovedLive ?? item.onchainVerified;
-  }
+  const onchainVerified = isDelegation ? undefined : (isApprovedLive ?? item.onchainVerified);
 
   const confirmedAt = block?.timestamp
     ? new Date(Number(block.timestamp) * 1000).toLocaleString()
@@ -133,7 +145,7 @@ export default function Receipt() {
     >
       <div className="w-full max-w-[430px] bg-background h-full flex flex-col relative">
         <div className="flex items-center justify-between p-6">
-          <Link href="/" className="p-2 -ml-2 rounded-full hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors">
+          <Link href="/activity" className="p-2 -ml-2 rounded-full hover:bg-white/[0.04] active:bg-white/[0.06] transition-colors">
             <X size={20} className="text-foreground/80" />
           </Link>
         </div>
@@ -169,12 +181,14 @@ export default function Receipt() {
               <TruthBadge
                 type={
                   isDelegation
-                    ? 'onchain'
+                    ? 'delegation'
                     : hasRealProof
                       ? (onchainVerified === true ? 'onchain' : 'pending')
                       : 'demo'
                 }
                 txHash={item.txHash}
+                expiresAt={item.delegationExpiry}
+                showCaveat={isDelegation}
               />
             </div>
           )}
@@ -206,8 +220,12 @@ export default function Receipt() {
               <div className="flex items-center gap-2">
                 <AgentAvatar size="sm" />
                 <div className="text-right">
-                  <span className="text-[12px] font-medium block">Scout</span>
-                  <span className="text-[9px] text-muted-foreground/30 font-mono tracking-wide">scout.base.eth</span>
+                  <span className="text-[12px] font-medium block">{connectedAgent?.name ?? 'Agent'}</span>
+                  {connectedAgent?.address ? (
+                    <span className="text-[9px] text-muted-foreground/30 font-mono tracking-wide">{connectedAgent.address}</span>
+                  ) : (
+                    <span className="text-[9px] text-muted-foreground/20">Demo agent</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -238,6 +256,28 @@ export default function Receipt() {
             )}
           </div>
 
+          {item.privateReasoningUsed && (
+            <div className="w-full bg-card rounded-2xl p-5 border border-violet-500/15 mt-4 space-y-0">
+              <div className="flex items-center gap-2 mb-4">
+                <Eye size={12} className="text-violet-400/60" />
+                <span className="text-[10px] font-semibold text-violet-400/60 uppercase tracking-[0.15em]">Reasoning Provenance</span>
+              </div>
+              <DetailRow label="Provider" value={`Private analysis via ${item.reasoningProvider || 'Venice'}`} />
+              {item.reasonSummary && (
+                <div className="flex flex-col gap-1.5 py-4 border-t border-white/[0.05]">
+                  <span className="text-[11px] text-muted-foreground/40 font-medium">Reason summary</span>
+                  <span className="text-[12px] text-foreground/80 font-medium leading-relaxed">{item.reasonSummary}</span>
+                </div>
+              )}
+              {item.disclosureSummary && (
+                <div className="flex flex-col gap-1.5 py-4 border-t border-white/[0.05]">
+                  <span className="text-[11px] text-muted-foreground/40 font-medium">Disclosure summary</span>
+                  <span className="text-[12px] text-foreground/80 font-medium leading-relaxed">{item.disclosureSummary}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {canSpend && (
             <div className="w-full mt-6 space-y-3">
               <button
@@ -258,7 +298,7 @@ export default function Receipt() {
                 )}
               </button>
               <p className="text-[10px] text-muted-foreground/40 text-center">
-                Redeems $5 USDC from the granted delegation via Scout session key
+                Redeems $5 USDC from the granted delegation via agent session key
               </p>
             </div>
           )}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldCheck, Loader2, ExternalLink, ArrowDownUp } from 'lucide-react';
+import { ShieldCheck, Loader2, ExternalLink, ArrowDownUp, Eye } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useAccount, useWriteContract, useConnect, useWalletClient } from 'wagmi';
 import { waitForTransactionReceipt, readContract } from 'wagmi/actions';
@@ -28,7 +28,7 @@ const TRUSTED_DESTINATIONS = [
 ];
 
 export default function Activity() {
-  const { feed, approvePending, declinePending } = useDemo();
+  const { feed, approvePending, declinePending, connectedAgent } = useDemo();
   const [, setLocation] = useLocation();
 
   const groupedFeed = feed.reduce((acc, item) => {
@@ -42,11 +42,17 @@ export default function Activity() {
       <header className="px-6 pt-12 pb-5 flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-xl z-10">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight">Activity</h1>
-          <p className="text-[11px] text-muted-foreground/50 mt-0.5 font-mono tracking-wide">scout.base.eth</p>
+          {connectedAgent ? (
+            <p className="text-[11px] text-muted-foreground/50 mt-0.5 font-mono tracking-wide">{connectedAgent.address}</p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground/30 mt-0.5">No agent connected</p>
+          )}
         </div>
         <div className="relative">
           <AgentAvatar size="sm" />
-          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
+          {connectedAgent && (
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
+          )}
         </div>
       </header>
 
@@ -62,8 +68,8 @@ export default function Activity() {
             >
               <div className="relative">
                 <AvatarIcon initial={payee.initial} colorClass={payee.color} size="md" className="shadow-md ring-1 ring-white/[0.06]" />
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-[1.5px] border-background flex items-center justify-center bg-blue-500 shadow-sm">
-                  <ShieldCheck size={8} className="text-white" />
+                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-background flex items-center justify-center bg-emerald-500 shadow-sm">
+                  <ShieldCheck size={9} className="text-white" />
                 </div>
               </div>
               <span className="text-[10px] font-medium text-muted-foreground/50 w-16 text-center truncate">
@@ -105,6 +111,29 @@ export default function Activity() {
   );
 }
 
+type VeniceFields = {
+  privateReasoningUsed: boolean;
+  reasoningProvider: string;
+  reasonSummary: string;
+  disclosureSummary: string;
+  demo?: boolean;
+  failed?: boolean;
+};
+
+type ApproveHandler = (
+  id: string,
+  realTxHash?: string,
+  permissionStruct?: import('@/context/DemoContext').SpendPermission['permissionStruct'],
+  onchainVerified?: boolean,
+  delegationFields?: {
+    permissionsContext: `0x${string}`;
+    delegationManager: `0x${string}`;
+    spendToken?: string;
+    delegationExpiry?: number;
+  },
+  veniceFields?: VeniceFields,
+) => void;
+
 function FeedCard({ 
   item, 
   isLast,
@@ -114,20 +143,11 @@ function FeedCard({
 }: { 
   item: FeedItem; 
   isLast: boolean;
-  onApprove: (
-    id: string,
-    realTxHash?: string,
-    permissionStruct?: import('@/context/DemoContext').SpendPermission['permissionStruct'],
-    onchainVerified?: boolean,
-    delegationFields?: {
-      permissionsContext: `0x${string}`;
-      delegationManager: `0x${string}`;
-      spendToken?: string;
-    },
-  ) => void;
+  onApprove: ApproveHandler;
   onDecline: () => void;
   onClick: () => void;
 }) {
+  const { privateReasoningEnabled } = useDemo();
   const isPending = item.status === 'PENDING';
   const isBlocked = item.status === 'BLOCKED' || item.status === 'DECLINED';
   const isApprovedOrAuto = item.status === 'APPROVED' || item.status === 'AUTO_APPROVED';
@@ -136,10 +156,10 @@ function FeedCard({
     return <PendingCard item={item} onApprove={onApprove} onDecline={onDecline} />;
   }
 
-  let badgeType: 'onchain' | 'demo' | 'pending' | null = null;
+  let badgeType: 'onchain' | 'demo' | 'pending' | 'delegation' | null = null;
   if (isApprovedOrAuto) {
     if (item.isDelegation) {
-      badgeType = 'onchain';
+      badgeType = 'delegation';
     } else if (item.isReal && item.txHash) {
       badgeType = item.onchainVerified === true ? 'onchain' : 'pending';
     } else {
@@ -180,15 +200,21 @@ function FeedCard({
             {item.amountStr}
           </span>
         </div>
-        <div className="flex justify-between items-center gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <p className={`text-[11px] truncate leading-relaxed ${isBlocked ? 'text-muted-foreground/35' : 'text-muted-foreground/50'}`}>{item.intent}</p>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {badgeType && <TruthBadge type={badgeType} txHash={item.txHash} />}
-            <StatusDot status={item.status} />
-          </div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <p className={`text-[11px] truncate leading-relaxed flex-1 min-w-0 ${isBlocked ? 'text-muted-foreground/35' : 'text-muted-foreground/50'}`}>{item.intent}</p>
+          <StatusDot status={item.status} />
         </div>
+        {(item.privateReasoningUsed || badgeType) && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {item.privateReasoningUsed && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-violet-500/8 border border-violet-500/10 text-[8px] font-medium text-violet-400/70 uppercase tracking-[0.06em]">
+                <Eye size={7} className="opacity-70" />
+                Venice
+              </span>
+            )}
+            {badgeType && <TruthBadge type={badgeType} txHash={item.txHash} expiresAt={item.delegationExpiry} />}
+          </div>
+        )}
         {isSwap && item.swapDetails && isApprovedOrAuto && (
           <div className="flex gap-3 mt-1.5 text-[9px] text-muted-foreground/35">
             <span>Rate: 1 {item.swapDetails.tokenInSymbol} = {item.swapDetails.exchangeRate} {item.swapDetails.tokenOutSymbol}</span>
@@ -203,33 +229,75 @@ function FeedCard({
   );
 }
 
+async function callVeniceAnalyze(item: FeedItem): Promise<VeniceFields> {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+  const scoutToken = import.meta.env.VITE_SCOUT_API_TOKEN || '';
+  const prompt = `Privately review a spend request for ${item.merchant} costing ${item.amountStr} in the category "${item.category}". Evaluate whether this purchase is reasonable, assess vendor pricing, and identify any risk factors.`;
+
+  try {
+    const res = await fetch(`${API_BASE}/venice/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(scoutToken ? { 'Authorization': `Bearer ${scoutToken}` } : {}),
+      },
+      body: JSON.stringify({ prompt }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Venice call failed' }));
+      throw new Error(body.error || `Venice returned ${res.status}`);
+    }
+
+    const data = await res.json();
+    return {
+      privateReasoningUsed: true,
+      reasoningProvider: data.provider || 'Venice',
+      reasonSummary: data.summary,
+      disclosureSummary: `Vendor, amount, and settlement proof are public. Purchase evaluation inputs and risk assessment remained private.${data.demo ? ' (demo — VENICE_API_KEY not configured)' : ''}`,
+      demo: !!data.demo,
+    };
+  } catch (e) {
+    console.error('[Venice] Analysis failed:', e);
+    return {
+      privateReasoningUsed: true,
+      reasoningProvider: 'Venice',
+      reasonSummary: '',
+      disclosureSummary: '',
+      failed: true,
+    };
+  }
+}
+
 function PendingCard({
   item,
   onApprove,
   onDecline,
 }: {
   item: FeedItem;
-  onApprove: (
-    id: string,
-    realTxHash?: string,
-    permissionStruct?: import('@/context/DemoContext').SpendPermission['permissionStruct'],
-    onchainVerified?: boolean,
-    delegationFields?: {
-      permissionsContext: `0x${string}`;
-      delegationManager: `0x${string}`;
-      spendToken?: string;
-    },
-  ) => void;
+  onApprove: ApproveHandler;
   onDecline: () => void;
 }) {
+  const { connectedAgent, privateReasoningEnabled } = useDemo();
   const { address, isConnected } = useAccount();
   const { connectors, connect } = useConnect();
   const { data: walletClient } = useWalletClient();
   const [isApproving, setIsApproving] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedHash, setConfirmedHash] = useState<string | null>(null);
 
   const { writeContractAsync } = useWriteContract();
+
+  const runVeniceIfEnabled = async (): Promise<VeniceFields | undefined> => {
+    if (!privateReasoningEnabled) return undefined;
+    setIsAnalyzing(true);
+    try {
+      return await callVeniceAnalyze(item);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleGrantDelegation = async () => {
     if (!isConnected || !address || !walletClient) return;
@@ -238,6 +306,8 @@ function PendingCard({
     setError(null);
 
     try {
+      const veniceResult = await runVeniceIfEnabled();
+
       const result = await requestDelegatedPermission(item.amount);
 
       const signMessage = async (args: { message: string }) => {
@@ -246,11 +316,12 @@ function PendingCard({
 
       const authResult = await registerDelegation(result.permissionsContext, address, signMessage);
 
-      onApprove(item.id, undefined, undefined, true, {
+      onApprove(item.id, undefined, undefined, undefined, {
         permissionsContext: result.permissionsContext,
         delegationManager: result.delegationManager,
         spendToken: authResult.spendToken,
-      });
+        delegationExpiry: result.expiry,
+      }, veniceResult);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Delegation request failed';
       if (message.includes('User rejected') || message.includes('user rejected')) {
@@ -270,6 +341,8 @@ function PendingCard({
     setError(null);
 
     try {
+      const veniceResult = await runVeniceIfEnabled();
+
       const now = Math.floor(Date.now() / 1000);
       const allowanceRaw = BigInt(Math.round(item.amount * 1_000_000));
 
@@ -323,7 +396,7 @@ function PendingCard({
       };
 
       setConfirmedHash(txHash);
-      onApprove(item.id, txHash, storedStruct, onchainVerified);
+      onApprove(item.id, txHash, storedStruct, onchainVerified, undefined, veniceResult);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Transaction failed';
       if (message.includes('User rejected') || message.includes('user rejected')) {
@@ -340,7 +413,7 @@ function PendingCard({
     ? handleGrantDelegation
     : handleGrantPermissionCoinbase;
 
-  const isBusy = isApproving;
+  const isBusy = isApproving || isAnalyzing;
 
   const buttonLabel = USE_METAMASK_DELEGATION ? 'Grant Delegation' : 'Grant Permission';
 
@@ -377,8 +450,8 @@ function PendingCard({
             </div>
             <p className="text-[12px] text-muted-foreground/60 leading-relaxed pr-2">
               {USE_METAMASK_DELEGATION
-                ? 'Scout wants delegated periodic USDC authority for real-time market data'
-                : 'Scout wants recurring access to real-time market data'}
+                ? `${connectedAgent?.name ?? 'Agent'} wants delegated periodic USDC authority for real-time market data`
+                : `${connectedAgent?.name ?? 'Agent'} wants recurring access to real-time market data`}
             </p>
           </div>
         </div>
@@ -399,27 +472,16 @@ function PendingCard({
           transition={{ delay: 0.15 }}
           className="flex flex-col gap-3 mt-5 pt-4 border-t border-white/[0.06]"
         >
-          {!isConnected ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const connector = connectors[0];
-                if (connector) connect({ connector });
-              }}
-              className="w-full py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all"
+          <div className="flex gap-3">
+            <button 
+              data-testid={`button-decline-${item.id}`}
+              disabled={isBusy}
+              onClick={(e) => { e.stopPropagation(); onDecline(); }}
+              className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-foreground/70 bg-white/[0.06] hover:bg-white/[0.09] active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
             >
-              Connect wallet to grant
+              Decline
             </button>
-          ) : (
-            <div className="flex gap-3">
-              <button 
-                data-testid={`button-decline-${item.id}`}
-                disabled={isBusy}
-                onClick={(e) => { e.stopPropagation(); onDecline(); }}
-                className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-foreground/70 bg-white/[0.06] hover:bg-white/[0.09] active:scale-[0.98] transition-all disabled:opacity-40 disabled:pointer-events-none"
-              >
-                Decline
-              </button>
+            {isConnected ? (
               <button 
                 data-testid={`button-approve-${item.id}`}
                 disabled={isBusy}
@@ -429,14 +491,42 @@ function PendingCard({
                 {isBusy ? (
                   <>
                     <Loader2 size={14} className="animate-spin" />
-                    {USE_METAMASK_DELEGATION ? 'Requesting…' : 'Approving…'}
+                    {isAnalyzing ? 'Analyzing…' : USE_METAMASK_DELEGATION ? 'Requesting…' : 'Approving…'}
                   </>
                 ) : (
                   buttonLabel
                 )}
               </button>
-            </div>
-          )}
+            ) : (
+              <button 
+                data-testid={`button-approve-${item.id}`}
+                disabled={isBusy}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setIsApproving(true);
+                  setError(null);
+                  try {
+                    const veniceResult = await runVeniceIfEnabled();
+                    onApprove(item.id, undefined, undefined, undefined, undefined, veniceResult);
+                  } catch {
+                    setError('Approval failed');
+                  } finally {
+                    setIsApproving(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 active:scale-[0.98] transition-all disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2"
+              >
+                {isBusy ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    {isAnalyzing ? 'Analyzing…' : 'Approving…'}
+                  </>
+                ) : (
+                  'Approve (demo)'
+                )}
+              </button>
+            )}
+          </div>
 
           {confirmedHash && (
             <motion.a

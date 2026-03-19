@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Wallet, Shield, ArrowRight, RefreshCw, Loader2, Zap } from 'lucide-react';
-import { useAccount, useConnect, useDisconnect, useReadContract } from 'wagmi';
+import { useAccount, useReadContract } from 'wagmi';
 import { useDemo, type SpendPermission } from '@/context/DemoContext';
 import { AvatarIcon } from '@/components/ui/AvatarIcon';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { TruthBadge } from '@/components/TruthBadge';
-import { SwapPanel } from '@/components/SwapPanel';
+import { WalletAddressChip } from '@/components/WalletAddressChip';
+import { AccountSheet } from '@/components/AccountSheet';
 import { useLocation } from 'wouter';
 import { USE_METAMASK_DELEGATION } from '@/config/delegation';
 import { executeDelegationSpend } from '@/lib/delegationSpend';
@@ -27,11 +28,11 @@ const ERC20_BALANCE_ABI = [
 ] as const;
 
 export default function Money() {
-  const { feed, rules, spendPermissions, resetDemo, recordDelegationSpend } = useDemo();
+  const { feed, rules, spendPermissions, resetDemo, recordDelegationSpend, connectedAgent } = useDemo();
+  const agentName = connectedAgent?.name ?? 'your agent';
   const { address, isConnected, chain } = useAccount();
-  const { connect, connectors } = useConnect();
-  const { disconnect } = useDisconnect();
   const [, setLocation] = useLocation();
+  const [showAccountSheet, setShowAccountSheet] = useState(false);
 
   const { data: usdcBalanceRaw } = useReadContract({
     address: USDC_BASE_SEPOLIA,
@@ -63,49 +64,33 @@ export default function Money() {
   return (
     <div className="flex flex-col min-h-full pb-8">
       <header className="px-6 pt-12 pb-2">
-        <h1 className="text-[28px] font-bold tracking-tight">Money</h1>
-        <p className="text-[11px] text-muted-foreground/50 mt-0.5">Your wallet · Scout's allocation</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-[28px] font-bold tracking-tight">Money</h1>
+            <p className="text-[11px] text-muted-foreground/50 mt-0.5">Your wallet · {agentName}'s allocation</p>
+          </div>
+          <WalletAddressChip />
+        </div>
       </header>
 
       <div className="px-6 pt-5 flex flex-col gap-4">
-
         <div className="relative bg-card rounded-2xl p-6 border border-border/50 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] via-transparent to-transparent" />
           <div className="relative">
-            {isConnected ? (
-              <>
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet size={13} className="text-muted-foreground/50" />
-                  <span className="text-[12px] text-muted-foreground/60 font-medium">
-                    Wallet Balance (USDC)
-                  </span>
-                  <TruthBadge type="onchain" />
-                </div>
-                <h2 className="text-[48px] font-bold tracking-tighter text-foreground leading-none mb-1.5">
-                  {usdcBalance !== null ? `$${usdcBalance}` : '—'}
-                </h2>
-                <p className="text-[12px] text-muted-foreground/40">
-                  USDC · {chain?.name || 'Base Sepolia'} · {truncatedAddress}
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet size={13} className="text-muted-foreground/50" />
-                  <span className="text-[12px] text-muted-foreground/60 font-medium">
-                    Wallet Balance
-                  </span>
-                </div>
-                <h2 className="text-[48px] font-bold tracking-tighter text-foreground leading-none mb-1.5">
-                  —
-                </h2>
-                <p className="text-[12px] text-muted-foreground/40 leading-relaxed">
-                  Connect a wallet to see your real USDC balance.
-                  <br />
-                  <span className="text-muted-foreground/30">Spend permissions and activity below are demo data — not drawn from a real wallet.</span>
-                </p>
-              </>
-            )}
+            <div className="flex items-center gap-2 mb-2">
+              <Wallet size={13} className="text-muted-foreground/50" />
+              <span className="text-[12px] text-muted-foreground/60 font-medium">
+                Wallet Balance (USDC)
+              </span>
+              <TruthBadge type="onchain" />
+            </div>
+            <h2 className="text-[48px] font-bold tracking-tighter text-foreground leading-none mb-1.5">
+              {usdcBalance !== null ? `$${usdcBalance}` : '—'}
+            </h2>
+            <p className="text-[12px] text-muted-foreground/40">
+              USDC · {chain?.name || 'Base Sepolia'} · <button onClick={() => setShowAccountSheet(true)} className="text-muted-foreground/50 hover:text-muted-foreground/70 transition-colors underline decoration-muted-foreground/20 underline-offset-2 font-mono">{truncatedAddress}</button>
+            </p>
+            {showAccountSheet && <AccountSheet onClose={() => setShowAccountSheet(false)} />}
 
             {activePermissions.length > 0 && (
               <div className="mt-5 pt-4 border-t border-white/[0.06]">
@@ -124,8 +109,6 @@ export default function Money() {
             )}
           </div>
         </div>
-
-        <SwapPanel />
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-card rounded-2xl p-4 border border-border/30">
@@ -148,7 +131,7 @@ export default function Money() {
             <div className="flex items-center gap-2 pl-1">
               <AgentAvatar size="sm" />
               <h3 className="text-[10px] font-semibold text-muted-foreground/35 uppercase tracking-[0.2em]">
-                Scout's Spend Permissions
+                {agentName}'s Spend Permissions
               </h3>
             </div>
             {activePermissions.map(perm => (
@@ -166,64 +149,9 @@ export default function Money() {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-foreground text-[13px]">Protected by {activeRulesCount} rules</h3>
-            <p className="text-[10px] text-muted-foreground/40">Scout can only spend within your constraints</p>
+            <p className="text-[10px] text-muted-foreground/40">{agentName} can only spend within your constraints</p>
           </div>
           <ArrowRight size={14} className="text-muted-foreground/25 shrink-0" />
-        </div>
-
-        <div className="bg-card rounded-2xl p-4 border border-border/30 mt-1">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-7 h-7 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Wallet size={13} className="text-blue-400/80" />
-              </div>
-              <div>
-                <p className="text-[12px] font-medium text-foreground">
-                  {isConnected ? 'Connected Wallet' : 'No Wallet Connected'}
-                </p>
-                {isConnected && truncatedAddress && (
-                  <p className="text-[10px] text-muted-foreground/35 font-mono">
-                    {truncatedAddress} · {chain?.name || 'Base Sepolia'}
-                  </p>
-                )}
-              </div>
-            </div>
-            {isConnected ? (
-              <button
-                onClick={() => disconnect()}
-                className="text-[10px] text-muted-foreground/40 hover:text-muted-foreground/60 transition-colors"
-              >
-                Disconnect
-              </button>
-            ) : null}
-          </div>
-
-          {isConnected ? (
-            <p className="text-[10px] text-muted-foreground/35 leading-relaxed pl-10">
-              {USE_METAMASK_DELEGATION
-                ? 'Funds stay in your smart wallet. Scout operates through MetaMask delegated permissions — Hashapp never takes custody.'
-                : 'Funds stay in your smart wallet. Scout operates through scoped permissions — Hashapp never takes custody.'}
-            </p>
-          ) : (
-            <div className="pl-10">
-              <p className="text-[10px] text-muted-foreground/35 leading-relaxed mb-3">
-                {USE_METAMASK_DELEGATION
-                  ? 'Connect MetaMask to enable delegated spend permissions on Base. Hashapp never takes custody of your funds.'
-                  : 'Connect a wallet to enable real spend permissions on Base. Hashapp never takes custody of your funds.'}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {connectors.map((connector) => (
-                  <button
-                    key={connector.uid}
-                    onClick={() => connect({ connector })}
-                    className="text-[11px] font-medium text-primary/80 bg-primary/8 hover:bg-primary/12 px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    {connector.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         <button
@@ -271,9 +199,9 @@ function SpendPermissionRow({ permission, onSpend }: { permission: SpendPermissi
     query: { enabled: !isDelegation && !!permStruct && !!permission.isReal },
   });
 
-  let badgeType: 'onchain' | 'demo' | 'pending';
+  let badgeType: 'onchain' | 'demo' | 'pending' | 'delegation';
   if (isDelegation && permission.permissionsContext) {
-    badgeType = 'onchain';
+    badgeType = 'delegation';
   } else if (permission.isReal && permission.txHash) {
     const verified = isApprovedOnchain ?? permission.onchainVerified;
     badgeType = verified ? 'onchain' : 'pending';
@@ -291,7 +219,7 @@ function SpendPermissionRow({ permission, onSpend }: { permission: SpendPermissi
       const result = await executeDelegationSpend({
         permissionsContext: permission.permissionsContext,
         delegationManager: permission.delegationManager,
-        amountUsdc: 5,
+        amountUsdc: '5',
         recipient: '0x000000000000000000000000000000000000dEaD' as `0x${string}`,
         spendToken: permission.spendToken,
       });
@@ -314,10 +242,7 @@ function SpendPermissionRow({ permission, onSpend }: { permission: SpendPermissi
             <div className={`w-[5px] h-[5px] rounded-full shrink-0 ${permission.state === 'active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
           </div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <TruthBadge type={badgeType} txHash={permission.txHash} />
-            {isDelegation && (
-              <span className="text-[8px] text-orange-400/60 font-medium uppercase tracking-wider">delegation</span>
-            )}
+            <TruthBadge type={badgeType} txHash={permission.txHash} expiresAt={permission.delegationExpiry} showCaveat={isDelegation} />
           </div>
         </div>
         <div className="text-right shrink-0">
