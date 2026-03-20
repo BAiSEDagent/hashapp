@@ -115,7 +115,10 @@ export default function Activity() {
       const body = await response.json().catch(() => ({ error: 'Delegated spend failed' }));
 
       if (!response.ok) {
-        const reason = body.error || 'Delegated spend failed';
+        const rawReason = body.error || 'Delegated spend failed';
+        const reason = rawReason === 'Transaction reverted onchain'
+          ? 'Blocked by delegated spend limit'
+          : rawReason;
         recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), reason, 'DataStream Pro');
         setDemoActionError(reason);
         return;
@@ -123,7 +126,10 @@ export default function Activity() {
 
       recordDelegationSpend(activeDelegationPermission.id, body.txHash, Number(amountUsdc), 'DataStream Pro');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Delegated spend failed';
+      const rawMessage = error instanceof Error ? error.message : 'Delegated spend failed';
+      const message = rawMessage === 'Transaction reverted onchain'
+        ? 'Blocked by delegated spend limit'
+        : rawMessage;
       recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), message, 'DataStream Pro');
       setDemoActionError(message);
     } finally {
@@ -202,9 +208,9 @@ export default function Activity() {
               <div className="rounded-2xl border border-white/[0.06] bg-card/70 px-4 py-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <h3 className="text-[13px] font-semibold text-foreground">Demo Actions</h3>
+                    <h3 className="text-[13px] font-semibold text-foreground">Track 1 Demo Actions</h3>
                     <p className="text-[11px] text-muted-foreground/45 mt-0.5">
-                      Trigger one allowed spend and one blocked spend against the active delegated authority.
+                      Run one allowed delegated spend and one blocked delegated spend against the active authority.
                     </p>
                   </div>
                   <TruthBadge type="delegation" txHash={recentDelegationItem?.txHash} expiresAt={activeDelegationPermission.delegationExpiry} />
@@ -216,20 +222,20 @@ export default function Activity() {
                     disabled={demoActionState !== 'idle'}
                     className="w-full py-3 rounded-xl text-[13px] font-semibold transition-all bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2"
                   >
-                    {demoActionState === 'allowed-running' ? <><Loader2 size={14} className="animate-spin" /> Spending $5…</> : 'Trigger allowed spend'}
+                    {demoActionState === 'allowed-running' ? <><Loader2 size={14} className="animate-spin" /> Executing allowed spend…</> : 'Run allowed spend'}
                   </button>
                   <button
                     onClick={() => void runDelegatedSpendDemo('150', 'blocked')}
                     disabled={demoActionState !== 'idle'}
                     className="w-full py-3 rounded-xl text-[13px] font-semibold transition-all bg-rose-500/12 text-rose-300 border border-rose-500/20 hover:bg-rose-500/18 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2"
                   >
-                    {demoActionState === 'blocked-running' ? <><Loader2 size={14} className="animate-spin" /> Testing block…</> : 'Trigger blocked spend'}
+                    {demoActionState === 'blocked-running' ? <><Loader2 size={14} className="animate-spin" /> Testing blocked spend…</> : 'Run blocked spend'}
                   </button>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground/40">
-                  <span>Allowed test: $5.00</span>
-                  <span>Blocked test: $150.00</span>
+                  <span>Allowed spend: $5.00</span>
+                  <span>Blocked spend: $150.00</span>
                 </div>
 
                 {demoActionError && (

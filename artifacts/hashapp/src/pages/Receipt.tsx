@@ -163,7 +163,7 @@ export default function Receipt() {
             </div>
             <DetailRow 
               label="Approval" 
-              value={item.status === 'AUTO_APPROVED' ? 'Auto-approved' : item.status === 'APPROVED' ? 'Human-approved' : item.status === 'BLOCKED' ? 'Blocked by rule' : item.status === 'DECLINED' ? 'Declined' : 'Pending'} 
+              value={item.status === 'AUTO_APPROVED' ? 'Auto-approved' : item.status === 'APPROVED' ? 'Human-approved' : item.status === 'BLOCKED' ? 'Blocked by delegated spend limit' : item.status === 'DECLINED' ? 'Declined' : 'Pending'} 
             />
             {isDelegation && (
               <DetailRow label="Authority" value="MetaMask Delegation (ERC-7710)" />
