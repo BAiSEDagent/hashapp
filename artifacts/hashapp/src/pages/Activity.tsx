@@ -208,9 +208,9 @@ export default function Activity() {
               <div className="rounded-2xl border border-white/[0.06] bg-card/70 px-4 py-4">
                 <div className="flex items-center justify-between gap-3 mb-3">
                   <div>
-                    <h3 className="text-[13px] font-semibold text-foreground">Track 1 Demo Actions</h3>
+                    <h3 className="text-[13px] font-semibold text-foreground">Delegated Spend Tests</h3>
                     <p className="text-[11px] text-muted-foreground/45 mt-0.5">
-                      Run one allowed delegated spend and one blocked delegated spend against the active authority.
+                      Test one spend within scope and one that exceeds delegated authority.
                     </p>
                   </div>
                   <TruthBadge type="delegation" txHash={recentDelegationItem?.txHash} expiresAt={activeDelegationPermission.delegationExpiry} />

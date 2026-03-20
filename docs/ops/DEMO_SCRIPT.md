@@ -14,7 +14,7 @@ Hashapp lets humans scope what agents can spend, lets agents act within delegate
 ### 2. Show the control plane
 - Go to **Activity**
 - Highlight **Delegation Control**
-- Highlight **Track 1 Demo Actions**
+- Highlight **Delegated Spend Tests**
 - Explain that Activity is the canonical control surface; Money is summary and Receipt is proof
 
 ### 3. Run allowed spend
