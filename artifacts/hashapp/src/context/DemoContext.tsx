@@ -126,6 +126,14 @@ interface DemoState {
   recordDelegationSpend: (
     permissionId: string,
     txHash: string,
+    amountUsdc?: number,
+    vendorName?: string,
+  ) => void;
+  recordDelegationSpendBlocked: (
+    permissionId: string,
+    amountUsdc: number,
+    reason: string,
+    vendorName?: string,
   ) => void;
   recordSwap: (params: {
     txHash: string;
@@ -544,19 +552,22 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const recordDelegationSpend = useCallback((
     permissionId: string,
     txHash: string,
+    amountUsdc = 5,
+    vendorName?: string,
   ) => {
     const perm = spendPermissions.find(p => p.id === permissionId);
     if (!perm) return;
 
+    const vendor = vendorName ?? perm.vendor;
     const spendItem: FeedItem = {
       id: `spend-${Date.now()}`,
       dateGroup: 'TODAY',
-      merchant: perm.vendor,
+      merchant: vendor,
       merchantColor: perm.vendorColor,
-      merchantInitial: perm.vendorInitial,
-      amount: 5.00,
-      amountStr: '$5.00',
-      intent: `${connectedAgent?.name ?? 'Agent'} redeemed delegated spend — ${perm.vendor}`,
+      merchantInitial: vendor.charAt(0).toUpperCase(),
+      amount: amountUsdc,
+      amountStr: `$${amountUsdc.toFixed(2)}`,
+      intent: `${connectedAgent?.name ?? 'Agent'} redeemed delegated spend — ${vendor}`,
       status: 'APPROVED',
       statusMessage: 'Delegated spend executed onchain',
       timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
@@ -567,7 +578,37 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       delegationExpiry: perm.delegationExpiry,
     };
     setFeed(prev => [spendItem, ...prev]);
-  }, [spendPermissions]);
+  }, [spendPermissions, connectedAgent]);
+
+  const recordDelegationSpendBlocked = useCallback((
+    permissionId: string,
+    amountUsdc: number,
+    reason: string,
+    vendorName?: string,
+  ) => {
+    const perm = spendPermissions.find(p => p.id === permissionId);
+    if (!perm) return;
+
+    const vendor = vendorName ?? perm.vendor;
+    const blockedItem: FeedItem = {
+      id: `spend-blocked-${Date.now()}`,
+      dateGroup: 'TODAY',
+      merchant: vendor,
+      merchantColor: perm.vendorColor,
+      merchantInitial: vendor.charAt(0).toUpperCase(),
+      amount: amountUsdc,
+      amountStr: `$${amountUsdc.toFixed(2)}`,
+      intent: `${connectedAgent?.name ?? 'Agent'} attempted delegated spend — ${vendor}`,
+      status: 'BLOCKED',
+      statusMessage: reason,
+      timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+      category: 'Delegated Spend',
+      isReal: false,
+      isDelegation: true,
+      delegationExpiry: perm.delegationExpiry,
+    };
+    setFeed(prev => [blockedItem, ...prev]);
+  }, [spendPermissions, connectedAgent]);
 
   const APPROVED_TOKEN_ADDRESSES = [
     '0x0000000000000000000000000000000000000000',
@@ -740,7 +781,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [walletAddress, forgetAgent]);
 
   return (
-    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, connectedAgent, connectAgent, editAgent, disconnectAgent, forgetAgent, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
+    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, connectedAgent, connectAgent, editAgent, disconnectAgent, forgetAgent, approvePending, recordDelegationSpend, recordDelegationSpendBlocked, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
       {children}
     </DemoContext.Provider>
   );

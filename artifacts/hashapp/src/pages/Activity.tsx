@@ -28,7 +28,7 @@ const TRUSTED_DESTINATIONS = [
 ];
 
 export default function Activity() {
-  const { feed, approvePending, declinePending, connectedAgent, spendPermissions } = useDemo();
+  const { feed, approvePending, declinePending, connectedAgent, spendPermissions, recordDelegationSpend, recordDelegationSpendBlocked } = useDemo();
   const { isConnected } = useAccount();
   const [, setLocation] = useLocation();
 
@@ -36,6 +36,8 @@ export default function Activity() {
   const activeDelegationPermission = spendPermissions.find(
     permission => permission.isDelegation && permission.vendor === 'DataStream Pro' && permission.state === 'active',
   );
+  const [demoActionState, setDemoActionState] = useState<'idle' | 'allowed-running' | 'blocked-running'>('idle');
+  const [demoActionError, setDemoActionError] = useState<string | null>(null);
   const recentDelegationItem = feed.find(
     item => item.isDelegation && item.merchant === 'DataStream Pro' && (item.status === 'APPROVED' || item.status === 'AUTO_APPROVED'),
   );
@@ -86,6 +88,49 @@ export default function Activity() {
     return acc;
   }, {} as Record<string, FeedItem[]>);
 
+  const runDelegatedSpendDemo = async (amountUsdc: string, mode: 'allowed' | 'blocked') => {
+    if (!activeDelegationPermission?.permissionsContext || !activeDelegationPermission.delegationManager || !activeDelegationPermission.spendToken) {
+      setDemoActionError('Grant delegation first. No active delegated permission is available yet.');
+      return;
+    }
+
+    setDemoActionError(null);
+    setDemoActionState(mode === 'allowed' ? 'allowed-running' : 'blocked-running');
+
+    try {
+      const response = await fetch('/api/delegation/spend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          permissionsContext: activeDelegationPermission.permissionsContext,
+          delegationManager: activeDelegationPermission.delegationManager,
+          tokenAddress: USDC_BASE_SEPOLIA,
+          amountUsdc,
+          recipient: '0xbf8bfde4b42baa2f4377b8ebc5d2602d3080a4d4',
+          spendToken: activeDelegationPermission.spendToken,
+          idempotencyKey: `${mode}-${Date.now()}`,
+        }),
+      });
+
+      const body = await response.json().catch(() => ({ error: 'Delegated spend failed' }));
+
+      if (!response.ok) {
+        const reason = body.error || 'Delegated spend failed';
+        recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), reason, 'DataStream Pro');
+        setDemoActionError(reason);
+        return;
+      }
+
+      recordDelegationSpend(activeDelegationPermission.id, body.txHash, Number(amountUsdc), 'DataStream Pro');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Delegated spend failed';
+      recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), message, 'DataStream Pro');
+      setDemoActionError(message);
+    } finally {
+      setDemoActionState('idle');
+    }
+  };
+
   return (
     <div className="flex flex-col min-h-full">
       <header className="px-6 pt-12 pb-5 flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-xl z-10">
@@ -131,24 +176,68 @@ export default function Activity() {
 
       <div className="px-5 pb-8 flex flex-col gap-8">
         {stableDelegationItem && (
-          <div className="flex flex-col">
-            <h2 className="text-[10px] font-semibold text-muted-foreground/35 uppercase tracking-[0.2em] pl-1 mb-2">
-              Delegation Control
-            </h2>
-            {stableDelegationItem.status === 'PENDING' ? (
-              <PendingCard
-                item={stableDelegationItem}
-                onApprove={approvePending}
-                onDecline={() => declinePending(stableDelegationItem.id)}
-              />
-            ) : (
-              <FeedCard
-                item={stableDelegationItem}
-                isLast
-                onApprove={approvePending}
-                onDecline={() => declinePending(stableDelegationItem.id)}
-                onClick={() => stableDelegationItem.id !== 'delegation-control' && setLocation(`/receipt/${stableDelegationItem.id}`)}
-              />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col">
+              <h2 className="text-[10px] font-semibold text-muted-foreground/35 uppercase tracking-[0.2em] pl-1 mb-2">
+                Delegation Control
+              </h2>
+              {stableDelegationItem.status === 'PENDING' ? (
+                <PendingCard
+                  item={stableDelegationItem}
+                  onApprove={approvePending}
+                  onDecline={() => declinePending(stableDelegationItem.id)}
+                />
+              ) : (
+                <FeedCard
+                  item={stableDelegationItem}
+                  isLast
+                  onApprove={approvePending}
+                  onDecline={() => declinePending(stableDelegationItem.id)}
+                  onClick={() => stableDelegationItem.id !== 'delegation-control' && setLocation(`/receipt/${stableDelegationItem.id}`)}
+                />
+              )}
+            </div>
+
+            {activeDelegationPermission && (
+              <div className="rounded-2xl border border-white/[0.06] bg-card/70 px-4 py-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-[13px] font-semibold text-foreground">Demo Actions</h3>
+                    <p className="text-[11px] text-muted-foreground/45 mt-0.5">
+                      Trigger one allowed spend and one blocked spend against the active delegated authority.
+                    </p>
+                  </div>
+                  <TruthBadge type="delegation" txHash={recentDelegationItem?.txHash} expiresAt={activeDelegationPermission.delegationExpiry} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    onClick={() => void runDelegatedSpendDemo('5', 'allowed')}
+                    disabled={demoActionState !== 'idle'}
+                    className="w-full py-3 rounded-xl text-[13px] font-semibold transition-all bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2"
+                  >
+                    {demoActionState === 'allowed-running' ? <><Loader2 size={14} className="animate-spin" /> Spending $5…</> : 'Trigger allowed spend'}
+                  </button>
+                  <button
+                    onClick={() => void runDelegatedSpendDemo('150', 'blocked')}
+                    disabled={demoActionState !== 'idle'}
+                    className="w-full py-3 rounded-xl text-[13px] font-semibold transition-all bg-rose-500/12 text-rose-300 border border-rose-500/20 hover:bg-rose-500/18 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none flex items-center justify-center gap-2"
+                  >
+                    {demoActionState === 'blocked-running' ? <><Loader2 size={14} className="animate-spin" /> Testing block…</> : 'Trigger blocked spend'}
+                  </button>
+                </div>
+
+                <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground/40">
+                  <span>Allowed test: $5.00</span>
+                  <span>Blocked test: $150.00</span>
+                </div>
+
+                {demoActionError && (
+                  <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/8 px-3 py-2">
+                    <p className="text-[11px] text-rose-300/90">{demoActionError}</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
