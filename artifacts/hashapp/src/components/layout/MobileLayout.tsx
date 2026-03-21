@@ -1,11 +1,28 @@
 import { Link, useLocation } from 'wouter';
 import { Activity, Bot, ShieldCheck, DollarSign, ArrowLeftRight } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { AgentAvatar } from '@/components/AgentAvatar';
 import { cn } from '@/lib/utils';
 
 export function MobileLayout({ children }: { children: React.ReactNode }) {
+  const { isConnected } = useAccount();
+
   return (
     <div className="min-h-screen bg-[#000000] w-full flex justify-center text-foreground font-sans">
       <div className="w-full max-w-[430px] bg-background min-h-screen relative flex flex-col shadow-2xl border-x border-white/[0.04]">
+        {isConnected && (
+          <Link
+            href="/agent"
+            className="absolute top-6 right-6 z-30 rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40"
+            aria-label="Open Agent"
+          >
+            <div className="relative">
+              <AgentAvatar size="sm" />
+              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-background" />
+            </div>
+          </Link>
+        )}
+
         <main className="flex-1 overflow-y-auto pb-24 scroll-smooth">
           {children}
         </main>
