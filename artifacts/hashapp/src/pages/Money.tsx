@@ -152,15 +152,13 @@ export default function Money() {
           <ArrowRight size={14} className="text-muted-foreground/25 shrink-0" />
         </div>
 
-        {import.meta.env.DEV && (
-          <button
-            onClick={resetDemo}
-            className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground/25 hover:text-muted-foreground/50 transition-colors mt-2 py-2"
-          >
-            <RefreshCw size={11} />
-            Reset demo state
-          </button>
-        )}
+        <button
+          onClick={resetDemo}
+          className="flex items-center justify-center gap-2 text-[11px] text-muted-foreground/25 hover:text-muted-foreground/50 transition-colors mt-2 py-2"
+        >
+          <RefreshCw size={11} />
+          Reset demo state
+        </button>
       </div>
 
       <div className="mt-auto pt-4 text-center pb-4">
