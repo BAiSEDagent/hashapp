@@ -3,7 +3,7 @@ import { erc7715ProviderActions } from '@metamask/smart-accounts-kit/actions';
 import {
   DELEGATION_CHAIN,
   USDC_BASE_SEPOLIA,
-  DELEGATION_RECIPIENT_ADDRESS,
+  AGENT_SESSION_ADDRESS,
   PERMISSION_PERIOD_DURATION,
   PERMISSION_EXPIRY_SECONDS,
 } from '@/config/delegation';
@@ -105,7 +105,7 @@ export async function requestDelegatedPermission(
     {
       chainId: DELEGATION_CHAIN.id,
       expiry,
-      to: DELEGATION_RECIPIENT_ADDRESS,
+      to: AGENT_SESSION_ADDRESS,
       permission: {
         type: 'erc20-token-periodic' as const,
         data: {
