@@ -40,6 +40,10 @@ export default function Rules() {
         </div>
       </div>
 
+      <div className="px-6 mb-4">
+        <ReasoningPrivacyCard />
+      </div>
+
       <div className="px-6 flex flex-col gap-2.5">
         {rules.map((rule, i) => (
           <motion.div 
@@ -87,10 +91,6 @@ export default function Rules() {
             </div>
           </motion.div>
         ))}
-      </div>
-
-      <div className="px-6 mt-6">
-        <ReasoningPrivacyCard />
       </div>
 
       <div className="mt-auto pt-10 text-center pb-4">
