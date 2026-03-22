@@ -44,6 +44,7 @@ export interface FeedItem {
   reasoningProvider?: string;
   reasonSummary?: string;
   disclosureSummary?: string;
+  technicalReason?: string;
 }
 
 export interface SpendPermission {
@@ -133,6 +134,7 @@ interface DemoState {
     permissionId: string,
     amountUsdc: number,
     reason: string,
+    technicalReason?: string,
     vendorName?: string,
   ) => void;
   recordSwap: (params: {
@@ -584,6 +586,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     permissionId: string,
     amountUsdc: number,
     reason: string,
+    technicalReason?: string,
     vendorName?: string,
   ) => {
     const perm = spendPermissions.find(p => p.id === permissionId);
@@ -601,6 +604,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       intent: `${connectedAgent?.name ?? 'Agent'} attempted delegated spend — ${vendor}`,
       status: 'BLOCKED',
       statusMessage: reason,
+      technicalReason,
       timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       category: 'Delegated Spend',
       isReal: false,

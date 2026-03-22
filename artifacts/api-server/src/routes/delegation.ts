@@ -452,11 +452,21 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     } catch { console.error('[DelegationSpend] Full error (non-serializable):', err); }
 
     let safeMessage = 'Delegation spend execution failed';
-    if (rawMessage.includes('reverted')) safeMessage = 'Transaction reverted onchain';
+    let detail = rawMessage;
+    if (rawMessage.includes('ExceededSpendPermission')) {
+      safeMessage = 'Transaction reverted onchain';
+      detail = 'ExceededSpendPermission';
+    } else if (rawMessage.includes('AfterSpendPermissionEnd')) {
+      safeMessage = 'Transaction reverted onchain';
+      detail = 'AfterSpendPermissionEnd';
+    } else if (rawMessage.includes('InvalidSender')) {
+      safeMessage = 'Transaction reverted onchain';
+      detail = 'InvalidSender';
+    } else if (rawMessage.includes('reverted')) safeMessage = 'Transaction reverted onchain';
     else if (rawMessage.includes('insufficient')) safeMessage = 'Insufficient funds or allowance';
     else if (rawMessage.includes('nonce')) safeMessage = 'Nonce conflict — please retry';
 
-    res.status(500).json({ error: safeMessage });
+    res.status(500).json({ error: safeMessage, detail });
   }
 });
 

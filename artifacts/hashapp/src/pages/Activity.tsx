@@ -115,10 +115,11 @@ export default function Activity() {
 
       if (!response.ok) {
         const rawReason = body.error || 'Delegated spend failed';
+        const technicalReason = body.detail || rawReason;
         const reason = rawReason === 'Transaction reverted onchain'
           ? 'Blocked by delegated spend limit'
           : rawReason;
-        recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), reason, 'DataStream Pro');
+        recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), reason, technicalReason, 'DataStream Pro');
         setDemoActionError(reason);
         return;
       }
@@ -129,7 +130,7 @@ export default function Activity() {
       const message = rawMessage === 'Transaction reverted onchain'
         ? 'Blocked by delegated spend limit'
         : rawMessage;
-      recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), message, 'DataStream Pro');
+      recordDelegationSpendBlocked(activeDelegationPermission.id, Number(amountUsdc), message, rawMessage, 'DataStream Pro');
       setDemoActionError(message);
     } finally {
       setDemoActionState('idle');

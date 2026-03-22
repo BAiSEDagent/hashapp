@@ -168,6 +168,9 @@ export default function Receipt() {
             {isDelegation && (
               <DetailRow label="Authority" value="MetaMask Delegation (ERC-7710)" />
             )}
+            {item.status === 'BLOCKED' && item.technicalReason && item.technicalReason !== item.statusMessage && (
+              <DetailRow label="Technical reason" value={item.technicalReason} />
+            )}
             <div className="flex items-center justify-between py-4 border-t border-white/[0.05]">
               <span className="text-[11px] text-muted-foreground/40 font-medium">
                 {isBlocked ? 'Requested by' : 'Authorized by'}
