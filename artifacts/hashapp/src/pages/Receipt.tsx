@@ -210,8 +210,8 @@ export default function Receipt() {
               <div className="flex items-center gap-2">
                 <AgentAvatar size="sm" />
                 <div className="text-right">
-                  <span className="text-[12px] font-medium block">Scout</span>
-                  <span className="text-[9px] text-muted-foreground/30 font-mono tracking-wide">scout.base.eth</span>
+                  <span className="text-[12px] font-medium block">Agent</span>
+                  <span className="text-[9px] text-muted-foreground/30">Connected agent</span>
                 </div>
               </div>
             </div>

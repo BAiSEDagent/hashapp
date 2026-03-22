@@ -28,7 +28,8 @@ const TRUSTED_DESTINATIONS = [
 ];
 
 export default function Activity() {
-  const { feed, approvePending, declinePending, threads, agentName, setActiveThreadId, markThreadRead } = useDemo();
+  const { feed, approvePending, declinePending, threads, connectedAgent, setActiveThreadId, markThreadRead } = useDemo() as any;
+  const agentName = connectedAgent?.name ?? 'Agent';
   const [, setLocation] = useLocation();
 
   const firstUnreadThread = threads.find((t: Thread) =>
@@ -49,7 +50,7 @@ export default function Activity() {
       <header className="px-6 pt-12 pb-5 flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur-xl z-10">
         <div>
           <h1 className="text-[28px] font-bold tracking-tight">Activity</h1>
-          <p className="text-[11px] text-muted-foreground/50 mt-0.5 font-mono tracking-wide">scout.base.eth</p>
+          <p className="text-[11px] text-muted-foreground/50 mt-0.5">Connected activity feed</p>
         </div>
         <div className="relative">
           <AgentAvatar size="sm" />

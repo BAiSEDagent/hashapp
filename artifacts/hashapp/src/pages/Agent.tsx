@@ -18,7 +18,7 @@ const scoutAddress = USE_METAMASK_DELEGATION ? SCOUT_SESSION_ADDRESS : SCOUT_SPE
 const SCOUT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
 
 export default function Agent() {
-  const { rules, feed, spendPermissions, recordScoutSwapAndPay } = useDemo();
+  const { rules, feed, spendPermissions, recordScoutSwapAndPay, connectedAgent } = useDemo() as any;
   const { address, isConnected } = useAccount();
   const [, setLocation] = useLocation();
   const [scoutPayState, setScoutPayState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -37,6 +37,7 @@ export default function Agent() {
   const truncatedAddress = address 
     ? `${address.slice(0, 6)}...${address.slice(-4)}` 
     : null;
+  const agentDisplayName = connectedAgent?.name ?? 'Agent';
 
   const handleScoutAutoPay = useCallback(async () => {
     setScoutPayState('running');
@@ -102,10 +103,9 @@ export default function Agent() {
           </div>
         </div>
         
-        <h1 className="text-[26px] font-bold tracking-tight mb-1">Agent</h1>
-        <p className="text-[12px] text-muted-foreground/50 mb-1">Research agent · reads markets, files reports</p>
-        <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-1">{SCOUT_ADDRESS_SHORT}</p>
-        <p className="text-[9px] text-muted-foreground/20 font-mono tracking-wide mb-4">scout.base.eth</p>
+        <h1 className="text-[26px] font-bold tracking-tight mb-1">{agentDisplayName}</h1>
+        <p className="text-[12px] text-muted-foreground/50 mb-1">Connected agent</p>
+        <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-4">{SCOUT_ADDRESS_SHORT}</p>
         
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/8 border border-emerald-500/10 text-[10px] font-medium text-emerald-400/80">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
