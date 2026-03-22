@@ -408,6 +408,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const updateAgentName = useCallback((name: string) => {
     setConnectedAgent(prev => {
+      if (!prev) return prev;
       const updated = { ...prev, name };
       persistConnectedAgent(walletAddress, updated);
       return updated;
