@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight } from 'lucide-react';
+import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Pencil, Unplug } from 'lucide-react';
 import { useAccount, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
@@ -18,7 +18,7 @@ const scoutAddress = USE_METAMASK_DELEGATION ? SCOUT_SESSION_ADDRESS : SCOUT_SPE
 const SCOUT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
 
 export default function Agent() {
-  const { rules, feed, spendPermissions, recordScoutSwapAndPay, connectedAgent } = useDemo() as any;
+  const { rules, feed, spendPermissions, recordScoutSwapAndPay, connectedAgent, disconnectAgent } = useDemo() as any;
   const { address, isConnected } = useAccount();
   const [, setLocation] = useLocation();
   const [scoutPayState, setScoutPayState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
@@ -110,6 +110,26 @@ export default function Agent() {
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/8 border border-emerald-500/10 text-[10px] font-medium text-emerald-400/80">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
           Active
+        </div>
+
+        <div className="flex items-center gap-5 mt-5 text-[13px]">
+          <button
+            onClick={() => setLocation('/rules')}
+            className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors"
+          >
+            <Pencil size={14} />
+            Edit Agent
+          </button>
+          <button
+            onClick={() => {
+              disconnectAgent?.();
+              setLocation('/');
+            }}
+            className="inline-flex items-center gap-2 text-rose-400/80 hover:text-rose-300 transition-colors"
+          >
+            <Unplug size={14} />
+            Remove Agent
+          </button>
         </div>
       </div>
 
