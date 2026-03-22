@@ -56,6 +56,7 @@ export default function Money() {
   const truncatedAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-4)}`
     : null;
+  const connectedWrongNetwork = isConnected && chain?.id !== 84532;
 
   return (
     <div className="flex flex-col min-h-full pb-8">
@@ -125,6 +126,15 @@ export default function Money() {
           </div>
         </div>
 
+        {connectedWrongNetwork && (
+          <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl px-4 py-3">
+            <p className="text-[12px] font-semibold text-amber-300">Wrong network connected</p>
+            <p className="text-[10px] text-amber-100/65 mt-1 leading-relaxed">
+              Switch your wallet to Base Sepolia before using real spend execution. Demo state remains visible, but live actions should stay locked on the wrong chain.
+            </p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-card rounded-2xl p-4 border border-border/30">
             <span className="text-[10px] text-muted-foreground/45 font-medium uppercase tracking-wider">Active Permissions</span>
@@ -150,7 +160,12 @@ export default function Money() {
               </h3>
             </div>
             {activePermissions.map(perm => (
-              <SpendPermissionRow key={perm.id} permission={perm} onSpendExecuted={recordExecutedSpend} />
+              <SpendPermissionRow
+                key={perm.id}
+                permission={perm}
+                onSpendExecuted={recordExecutedSpend}
+                connectedWrongNetwork={connectedWrongNetwork}
+              />
             ))}
           </div>
         )}
@@ -245,9 +260,11 @@ export default function Money() {
 function SpendPermissionRow({
   permission,
   onSpendExecuted,
+  connectedWrongNetwork,
 }: {
   permission: SpendPermission;
   onSpendExecuted: (permissionId: string, amount: number, txHash: `0x${string}`, threadId?: string) => void;
+  connectedWrongNetwork: boolean;
 }) {
   const cadenceLabel = { daily: '/day', weekly: '/wk', monthly: '/mo' };
   const permStruct = permission.permissionStruct;
@@ -281,7 +298,7 @@ function SpendPermissionRow({
     badgeType = 'demo';
   }
 
-  const canExecuteSpend = badgeType === 'onchain' && !!permStruct;
+  const canExecuteSpend = badgeType === 'onchain' && !!permStruct && !connectedWrongNetwork;
 
   const handleExecuteSpend = async () => {
     if (!permStruct) return;
@@ -295,6 +312,7 @@ function SpendPermissionRow({
         body: JSON.stringify({
           permission: permStruct,
           value: '5000000',
+          idempotencyKey: `${permission.id}-5`,
         }),
       });
 
