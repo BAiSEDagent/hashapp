@@ -94,15 +94,20 @@ export interface Thread {
   messages: Message[];
 }
 
-interface DemoState {
+export interface ConnectedAgent {
+  name: string;
+}
+
+export interface DemoState {
   feed: FeedItem[];
   rules: Rule[];
   spendPermissions: SpendPermission[];
   stage: 'INITIAL' | 'PENDING_ADDED' | 'APPROVED' | 'RULE_DISABLED' | 'BLOCKED_ADDED';
   threads: Thread[];
   activeThreadId: string | null;
-  agentName: string;
-  connectedAgent: { name: string } | null;
+  connectedAgent: ConnectedAgent | null;
+  connectAgent: (agent: ConnectedAgent) => void;
+  updateAgentName: (name: string) => void;
   privateReasoningEnabled: boolean;
   setPrivateReasoningEnabled: (enabled: boolean) => void;
   agentAvatarUrl: string | null;
@@ -140,7 +145,7 @@ interface DemoState {
     amountIn: string;
     reason: string;
   }) => void;
-  recordScoutSwapAndPay: (params: {
+  recordAgentSwapAndPay: (params: {
     swapTxHash: string;
     paymentTxHash: string;
     swapDetails: SwapDetails;
@@ -167,7 +172,7 @@ const INITIAL_FEED: FeedItem[] = [
     merchantInitial: 'P',
     amount: 20.00,
     amountStr: '$20.00',
-    intent: "Scout bought research credits for today's market scan",
+    intent: "Purchased research credits for today's market scan",
     status: 'AUTO_APPROVED',
     statusMessage: 'Auto-approved — within daily budget',
     timestamp: '11:42 AM',
@@ -181,7 +186,7 @@ const INITIAL_FEED: FeedItem[] = [
     merchantInitial: 'C',
     amount: 299.00,
     amountStr: '$299.00',
-    intent: "Scout tried to purchase enterprise analytics suite",
+    intent: "Tried to purchase enterprise analytics suite",
     status: 'BLOCKED',
     statusMessage: 'Blocked — exceeds single-purchase limit',
     timestamp: '9:15 AM',
@@ -195,7 +200,7 @@ const INITIAL_FEED: FeedItem[] = [
     merchantInitial: 'O',
     amount: 45.00,
     amountStr: '$45.00',
-    intent: "Scout renewed API credits for report generation",
+    intent: "Renewed API credits for report generation",
     status: 'APPROVED',
     statusMessage: 'Approved',
     timestamp: '4:20 PM',
@@ -209,7 +214,7 @@ const INITIAL_FEED: FeedItem[] = [
     merchantInitial: 'P',
     amount: 35.00,
     amountStr: '$35.00',
-    intent: "Scout purchased market intelligence data",
+    intent: "Purchased market intelligence data",
     status: 'AUTO_APPROVED',
     statusMessage: 'Auto-approved',
     timestamp: '1:10 PM',
@@ -223,7 +228,7 @@ const INITIAL_FEED: FeedItem[] = [
     merchantInitial: 'S',
     amount: 29.00,
     amountStr: '$29.00',
-    intent: "Scout bought industry report access",
+    intent: "Purchased industry report access",
     status: 'APPROVED',
     statusMessage: 'Approved',
     timestamp: '10:05 AM',
@@ -258,7 +263,7 @@ const INITIAL_RULES: Rule[] = [
   { id: 'r1', name: 'Verified vendors only', description: 'Only spend at vendors verified on Base', enabled: true },
   { id: 'r2', name: 'Per-purchase cap: 50 USDC', description: 'Block any single purchase above $50 USDC', enabled: true },
   { id: 'r3', name: 'Daily limit: 200 USDC', description: 'Cap total daily spend at $200 USDC', enabled: true },
-  { id: 'r4', name: 'Block spend permissions', description: 'Prevent Scout from creating recurring spend permissions', enabled: true },
+  { id: 'r4', name: 'Block spend permissions', description: 'Prevent your agent from creating recurring spend permissions', enabled: true },
   { id: 'r5', name: 'New vendor approval', description: 'Require your approval before paying a new vendor', enabled: true },
   { id: 'r6', name: 'Max slippage: 1%', description: 'Block swaps with slippage tolerance above 1%', enabled: true },
   { id: 'r7', name: 'Per-swap cap: 50 USDC', description: 'Block any single swap above $50 USDC equivalent', enabled: true },
@@ -283,13 +288,14 @@ const SEED_THREADS: Thread[] = [
 
 const STORAGE_KEY = 'hashapp_demo_state';
 const AVATAR_STORAGE_KEY = 'hashapp_agent_avatar';
+const AGENT_STORAGE_KEY = 'hashapp_connected_agent';
 
 function loadPersistedState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed.version === 5) {
+      if (parsed.version === 6) {
         if (parsed.threads === undefined) {
           parsed.threads = SEED_THREADS;
         }
@@ -303,13 +309,31 @@ function loadPersistedState() {
 function persistState(feed: FeedItem[], rules: Rule[], spendPermissions: SpendPermission[], stage: DemoState['stage'], threads: Thread[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      version: 5,
+      version: 6,
       feed,
       rules,
       spendPermissions,
       stage,
       threads,
     }));
+  } catch {}
+}
+
+function loadConnectedAgent(): ConnectedAgent | null {
+  try {
+    const raw = localStorage.getItem(AGENT_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return null;
+}
+
+function persistConnectedAgent(agent: ConnectedAgent | null) {
+  try {
+    if (agent) {
+      localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(agent));
+    } else {
+      localStorage.removeItem(AGENT_STORAGE_KEY);
+    }
   } catch {}
 }
 
@@ -324,6 +348,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [threads, setThreads] = useState<Thread[]>(persisted?.threads ?? SEED_THREADS);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [privateReasoningEnabled, setPrivateReasoningEnabled] = useState(true);
+
+  const [connectedAgent, setConnectedAgent] = useState<ConnectedAgent | null>(() => loadConnectedAgent());
 
   const [agentAvatarUrl, setAgentAvatarUrlState] = useState<string | null>(() => {
     try {
@@ -344,9 +370,33 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const connectAgent = useCallback((agent: ConnectedAgent) => {
+    setConnectedAgent(agent);
+    persistConnectedAgent(agent);
+  }, []);
+
+  const updateAgentName = useCallback((name: string) => {
+    setConnectedAgent(prev => {
+      const updated = { ...prev, name };
+      persistConnectedAgent(updated);
+      return updated;
+    });
+  }, []);
+
+  const disconnectAgent = useCallback(() => {
+    setConnectedAgent(null);
+    persistConnectedAgent(null);
+    setAgentAvatarUrlState(null);
+    try { localStorage.removeItem(AVATAR_STORAGE_KEY); } catch {}
+    setThreads([]);
+    setActiveThreadId(null);
+  }, []);
+
   useEffect(() => {
     persistState(feed, rules, spendPermissions, stage, threads);
   }, [feed, rules, spendPermissions, stage, threads]);
+
+  const agentLabel = connectedAgent?.name ?? 'Your agent';
 
   useEffect(() => {
     if (stage !== 'INITIAL') return;
@@ -359,7 +409,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
         merchantInitial: 'D',
         amount: 89.00,
         amountStr: '$89.00',
-        intent: "Scout is requesting a recurring spend permission — $89 USDC/mo for real-time market data from DataStream Pro",
+        intent: `${agentLabel} is requesting a recurring spend permission — $89 USDC/mo for real-time market data from DataStream Pro`,
         status: 'PENDING',
         statusMessage: 'Spend permission · needs approval',
         timestamp: 'Just now',
@@ -369,7 +419,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setStage('PENDING_ADDED');
     }, 3000);
     return () => clearTimeout(timer);
-  }, [stage]);
+  }, [stage, agentLabel]);
 
   useEffect(() => {
     if (stage !== 'RULE_DISABLED') return;
@@ -382,7 +432,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
         merchantInitial: 'D',
         amount: 89.00,
         amountStr: '$89.00',
-        intent: "Scout attempted first charge under DataStream Pro spend permission",
+        intent: `${agentLabel} attempted first charge under DataStream Pro spend permission`,
         status: 'BLOCKED',
         statusMessage: 'Blocked — exceeds per-purchase cap',
         timestamp: 'Just now',
@@ -392,7 +442,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setStage('BLOCKED_ADDED');
     }, 2000);
     return () => clearTimeout(timer);
-  }, [stage]);
+  }, [stage, agentLabel]);
 
   const approvePending = useCallback((
     id: string,
@@ -462,7 +512,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       merchantInitial: perm.vendorInitial,
       amount: 5.00,
       amountStr: '$5.00',
-      intent: `Scout redeemed delegated spend — ${perm.vendor}`,
+      intent: `Redeemed delegated spend — ${perm.vendor}`,
       status: 'APPROVED',
       statusMessage: 'Delegated spend executed onchain',
       timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
@@ -560,7 +610,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setFeed(prev => [blockedItem, ...prev]);
   }, []);
 
-  const recordScoutSwapAndPay = useCallback((params: {
+  const recordAgentSwapAndPay = useCallback((params: {
     swapTxHash: string;
     paymentTxHash: string;
     swapDetails: SwapDetails;
@@ -570,16 +620,16 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
     const swapItem: FeedItem = {
-      id: `scout-swap-${Date.now()}`,
+      id: `agent-swap-${Date.now()}`,
       dateGroup: 'TODAY',
       merchant: 'Uniswap',
       merchantColor: 'bg-pink-500',
       merchantInitial: 'U',
       amount: 0,
       amountStr: `${params.swapDetails.amountIn} ${params.swapDetails.tokenInSymbol}`,
-      intent: `Scout swapped ${params.swapDetails.amountIn} ${params.swapDetails.tokenInSymbol} → ${params.swapDetails.amountOut} ${params.swapDetails.tokenOutSymbol}`,
+      intent: `Swapped ${params.swapDetails.amountIn} ${params.swapDetails.tokenInSymbol} → ${params.swapDetails.amountOut} ${params.swapDetails.tokenOutSymbol}`,
       status: 'AUTO_APPROVED',
-      statusMessage: 'Scout auto-swap for vendor payment',
+      statusMessage: 'Agent auto-swap for vendor payment',
       timestamp: now,
       category: 'Swap',
       txHash: params.swapTxHash,
@@ -590,14 +640,14 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     };
 
     const paymentItem: FeedItem = {
-      id: `scout-pay-${Date.now()}`,
+      id: `agent-pay-${Date.now()}`,
       dateGroup: 'TODAY',
       merchant: params.vendor,
       merchantColor: 'bg-teal-500',
       merchantInitial: params.vendor.charAt(0).toUpperCase(),
       amount: params.paymentAmountUsdc,
       amountStr: `$${params.paymentAmountUsdc.toFixed(2)}`,
-      intent: `Scout paid ${params.vendor} after swapping ${params.swapDetails.tokenInSymbol} → USDC`,
+      intent: `Paid ${params.vendor} after swapping ${params.swapDetails.tokenInSymbol} → USDC`,
       status: 'AUTO_APPROVED',
       statusMessage: 'Autonomous payment after swap',
       timestamp: now,
@@ -664,10 +714,6 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setThreads(prev => prev.filter(t => t.id !== threadId));
   }, []);
 
-  const disconnectAgent = useCallback(() => {
-    setAgentAvatarUrlState(null);
-  }, []);
-
   const resetDemo = useCallback(() => {
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
     setFeed(INITIAL_FEED);
@@ -679,7 +725,37 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, threads, activeThreadId, agentName: 'Agent', connectedAgent: { name: 'Agent' }, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, disconnectAgent, setActiveThreadId, addThread, addMessage, markThreadRead, linkThreadToTx, deleteThread, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
+    <DemoContext.Provider value={{
+      feed,
+      rules,
+      spendPermissions,
+      stage,
+      threads,
+      activeThreadId,
+      connectedAgent,
+      connectAgent,
+      updateAgentName,
+      privateReasoningEnabled,
+      setPrivateReasoningEnabled,
+      agentAvatarUrl,
+      setAgentAvatarUrl,
+      disconnectAgent,
+      setActiveThreadId,
+      addThread,
+      addMessage,
+      markThreadRead,
+      linkThreadToTx,
+      deleteThread,
+      approvePending,
+      recordDelegationSpend,
+      recordSwap,
+      recordBlockedSwap,
+      recordAgentSwapAndPay,
+      checkSwapRules,
+      declinePending,
+      toggleRule,
+      resetDemo,
+    }}>
       {children}
     </DemoContext.Provider>
   );

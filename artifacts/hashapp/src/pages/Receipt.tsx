@@ -16,11 +16,12 @@ import { TruthBadge } from '@/components/TruthBadge';
 
 export default function Receipt() {
   const [, params] = useRoute('/receipt/:id');
-  const { feed, spendPermissions, recordDelegationSpend, threads, activeThreadId, setActiveThreadId, linkThreadToTx } = useDemo();
+  const { feed, spendPermissions, recordDelegationSpend, threads, activeThreadId, setActiveThreadId, linkThreadToTx, connectedAgent } = useDemo();
   const [, setLocation] = useLocation();
   const [isSpending, setIsSpending] = useState(false);
   const [spendError, setSpendError] = useState<string | null>(null);
   const [spendTxHash, setSpendTxHash] = useState<string | null>(null);
+  const agentDisplayName = connectedAgent?.name ?? 'Agent';
   
   const item = feed.find(f => f.id === params?.id);
 
@@ -210,7 +211,7 @@ export default function Receipt() {
               <div className="flex items-center gap-2">
                 <AgentAvatar size="sm" />
                 <div className="text-right">
-                  <span className="text-[12px] font-medium block">Agent</span>
+                  <span className="text-[12px] font-medium block">{agentDisplayName}</span>
                   <span className="text-[9px] text-muted-foreground/30">Connected agent</span>
                 </div>
               </div>
@@ -296,7 +297,7 @@ export default function Receipt() {
                 )}
               </button>
               <p className="text-[10px] text-muted-foreground/40 text-center">
-                Redeems $5 USDC from the granted delegation via Scout session key
+                Redeems $5 USDC from the granted delegation via agent session key
               </p>
             </div>
           )}

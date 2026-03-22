@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Pencil, Unplug } from 'lucide-react';
+import { Shield, ArrowRight, CheckCircle2, Zap, RefreshCw, ArrowLeftRight, Pencil, Unplug, X, Check } from 'lucide-react';
 import { useAccount, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
@@ -15,21 +15,23 @@ import {
 } from '@/config/spendPermission';
 
 const scoutAddress = USE_METAMASK_DELEGATION ? SCOUT_SESSION_ADDRESS : SCOUT_SPENDER_ADDRESS;
-const SCOUT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
+const AGENT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
 
 export default function Agent() {
-  const { rules, feed, spendPermissions, recordScoutSwapAndPay, connectedAgent, disconnectAgent } = useDemo() as any;
+  const { rules, feed, spendPermissions, recordAgentSwapAndPay, connectedAgent, connectAgent, updateAgentName, disconnectAgent } = useDemo();
   const { address, isConnected } = useAccount();
   const [, setLocation] = useLocation();
-  const [scoutPayState, setScoutPayState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
-  const [scoutPayError, setScoutPayError] = useState<string | null>(null);
-  const activeRulesCount = rules.filter(r => r.enabled).length;
-  const approvedCount = feed.filter(i => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED').length;
-  const blockedCount = feed.filter(i => i.status === 'BLOCKED').length;
-  const activePermissions = spendPermissions.filter(p => p.state === 'active');
+  const [autoPayState, setAutoPayState] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [autoPayError, setAutoPayError] = useState<string | null>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
+  const activeRulesCount = rules.filter((r) => r.enabled).length;
+  const approvedCount = feed.filter((i) => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED').length;
+  const blockedCount = feed.filter((i) => i.status === 'BLOCKED').length;
+  const activePermissions = spendPermissions.filter((p) => p.state === 'active');
 
   const totalSpent = feed
-    .filter(i => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED')
+    .filter((i) => i.status === 'APPROVED' || i.status === 'AUTO_APPROVED')
     .reduce((sum, i) => sum + i.amount, 0);
 
   const totalBudget = activePermissions.reduce((sum, p) => sum + p.amount, 0);
@@ -39,17 +41,38 @@ export default function Agent() {
     : null;
   const agentDisplayName = connectedAgent?.name ?? 'Agent';
 
-  const handleScoutAutoPay = useCallback(async () => {
-    setScoutPayState('running');
-    setScoutPayError(null);
+  if (!connectedAgent) {
+    return <AgentOnboarding onConnect={connectAgent} />;
+  }
+
+  const handleStartEdit = () => {
+    setEditNameValue(connectedAgent.name);
+    setIsEditingName(true);
+  };
+
+  const handleSaveEdit = () => {
+    const trimmed = editNameValue.trim();
+    if (trimmed && trimmed !== connectedAgent.name) {
+      updateAgentName(trimmed);
+    }
+    setIsEditingName(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingName(false);
+  };
+
+  const handleAutoPay = async () => {
+    setAutoPayState('running');
+    setAutoPayError(null);
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-      const scoutToken = import.meta.env.VITE_SCOUT_API_TOKEN || '';
+      const agentToken = import.meta.env.VITE_SCOUT_API_TOKEN || '';
       const res = await fetch(`${API_BASE}/swap/scout-swap-and-pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(scoutToken ? { 'Authorization': `Bearer ${scoutToken}` } : {}),
+          ...(agentToken ? { 'Authorization': `Bearer ${agentToken}` } : {}),
         },
         body: JSON.stringify({
           tokenIn: '0x0000000000000000000000000000000000000000',
@@ -61,12 +84,12 @@ export default function Agent() {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: 'Scout auto-pay failed' }));
+        const body = await res.json().catch(() => ({ error: 'Auto-pay failed' }));
         throw new Error(body.error || `Failed (${res.status})`);
       }
 
       const data = await res.json();
-      recordScoutSwapAndPay({
+      recordAgentSwapAndPay({
         swapTxHash: data.swapTxHash,
         paymentTxHash: data.paymentTxHash,
         swapDetails: {
@@ -83,13 +106,13 @@ export default function Agent() {
         vendor: 'Perplexity',
         paymentAmountUsdc: 10,
       });
-      setScoutPayState('done');
+      setAutoPayState('done');
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Scout auto-pay failed';
-      setScoutPayError(msg);
-      setScoutPayState('error');
+      const msg = e instanceof Error ? e.message : 'Auto-pay failed';
+      setAutoPayError(msg);
+      setAutoPayState('error');
     }
-  }, [recordScoutSwapAndPay]);
+  };
 
   return (
     <div className="flex flex-col min-h-full pb-8">
@@ -103,9 +126,28 @@ export default function Agent() {
           </div>
         </div>
         
-        <h1 className="text-[26px] font-bold tracking-tight mb-1">{agentDisplayName}</h1>
+        {isEditingName ? (
+          <div className="flex items-center gap-2 mb-1">
+            <input
+              autoFocus
+              value={editNameValue}
+              onChange={(e) => setEditNameValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') handleCancelEdit(); }}
+              className="bg-white/[0.06] border border-white/[0.1] rounded-lg px-3 py-1.5 text-[20px] font-bold text-center text-foreground outline-none focus:border-primary/40 transition-colors w-48"
+              maxLength={32}
+            />
+            <button onClick={handleSaveEdit} className="p-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 transition-colors">
+              <Check size={14} className="text-emerald-400" />
+            </button>
+            <button onClick={handleCancelEdit} className="p-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] transition-colors">
+              <X size={14} className="text-muted-foreground/60" />
+            </button>
+          </div>
+        ) : (
+          <h1 className="text-[26px] font-bold tracking-tight mb-1">{agentDisplayName}</h1>
+        )}
         <p className="text-[12px] text-muted-foreground/50 mb-1">Connected agent</p>
-        <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-4">{SCOUT_ADDRESS_SHORT}</p>
+        <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-4">{AGENT_ADDRESS_SHORT}</p>
         
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/8 border border-emerald-500/10 text-[10px] font-medium text-emerald-400/80">
           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -114,7 +156,7 @@ export default function Agent() {
 
         <div className="flex items-center gap-5 mt-5 text-[13px]">
           <button
-            onClick={() => setLocation('/rules')}
+            onClick={handleStartEdit}
             className="inline-flex items-center gap-2 text-muted-foreground/60 hover:text-foreground transition-colors"
           >
             <Pencil size={14} />
@@ -122,7 +164,7 @@ export default function Agent() {
           </button>
           <button
             onClick={() => {
-              disconnectAgent?.();
+              disconnectAgent();
               setLocation('/');
             }}
             className="inline-flex items-center gap-2 text-rose-400/80 hover:text-rose-300 transition-colors"
@@ -147,7 +189,7 @@ export default function Agent() {
           </div>
           <div className="space-y-3">
             <StateRow label="Status" value="Active" valueColor="text-emerald-400" />
-            <StateRow label="Spender address" value={SCOUT_ADDRESS_SHORT} mono />
+            <StateRow label="Spender address" value={AGENT_ADDRESS_SHORT} mono />
             <StateRow 
               label="Spending from" 
               value={isConnected && truncatedAddress ? truncatedAddress : 'No wallet connected'} 
@@ -193,19 +235,19 @@ export default function Agent() {
             <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Agent Auto-Pay</span>
           </div>
           <p className="text-[11px] text-muted-foreground/40 mb-4">
-            Scout can autonomously swap ETH → USDC via Uniswap then pay vendors. This triggers a real onchain swap + USDC transfer on Base Sepolia.
+            {agentDisplayName} can autonomously swap ETH → USDC via Uniswap then pay vendors. This triggers a real onchain swap + USDC transfer on Base Sepolia.
           </p>
           <button
-            onClick={handleScoutAutoPay}
-            disabled={scoutPayState === 'running'}
+            onClick={handleAutoPay}
+            disabled={autoPayState === 'running'}
             className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 active:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {scoutPayState === 'running' ? 'Swapping & Paying...' : scoutPayState === 'done' ? 'Done — Check Activity ✓' : 'Trigger Agent Swap → Pay'}
+            {autoPayState === 'running' ? 'Swapping & Paying...' : autoPayState === 'done' ? 'Done — Check Activity ✓' : 'Trigger Agent Swap → Pay'}
           </button>
-          {scoutPayError && (
-            <p className="mt-2 text-[10px] text-rose-400/80">{scoutPayError}</p>
+          {autoPayError && (
+            <p className="mt-2 text-[10px] text-rose-400/80">{autoPayError}</p>
           )}
-          {scoutPayState === 'done' && (
+          {autoPayState === 'done' && (
             <p className="mt-2 text-[10px] text-emerald-400/80">SWAP + PAYMENT recorded in Activity feed with real tx hashes.</p>
           )}
         </div>
@@ -232,6 +274,44 @@ export default function Agent() {
           {USE_METAMASK_DELEGATION ? 'ERC-7710 · ERC-7715 · ' : 'ERC-8004 · '}Base Sepolia
         </p>
       </div>
+    </div>
+  );
+}
+
+function AgentOnboarding({ onConnect }: { onConnect: (agent: { name: string }) => void }) {
+  const [name, setName] = useState('');
+
+  const handleConnect = () => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onConnect({ name: trimmed });
+  };
+
+  return (
+    <div className="flex flex-col min-h-full items-center justify-center px-8">
+      <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/15 flex items-center justify-center mb-6">
+        <span className="text-[28px] font-bold text-primary tracking-tighter">#</span>
+      </div>
+      <h1 className="text-[24px] font-bold tracking-tight mb-2">Connect your agent</h1>
+      <p className="text-[13px] text-muted-foreground/60 text-center mb-8 max-w-[280px] leading-relaxed">
+        Give your agent a name to get started. You can change this later.
+      </p>
+      <input
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleConnect(); }}
+        placeholder="Agent name"
+        className="w-full max-w-[300px] bg-white/[0.06] border border-white/[0.1] rounded-xl px-4 py-3 text-[15px] text-foreground placeholder:text-muted-foreground/30 outline-none focus:border-primary/40 transition-colors mb-4 text-center"
+        maxLength={32}
+      />
+      <button
+        onClick={handleConnect}
+        disabled={!name.trim()}
+        className="w-full max-w-[300px] py-3 rounded-xl text-[15px] font-semibold text-primary-foreground bg-primary hover:bg-primary/90 active:scale-[0.98] shadow-lg shadow-primary/20 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+      >
+        Connect Agent
+      </button>
     </div>
   );
 }

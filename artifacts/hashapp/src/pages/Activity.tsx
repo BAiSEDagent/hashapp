@@ -28,8 +28,8 @@ const TRUSTED_DESTINATIONS = [
 ];
 
 export default function Activity() {
-  const { feed, approvePending, declinePending, threads, connectedAgent, setActiveThreadId, markThreadRead } = useDemo() as any;
-  const agentName = connectedAgent?.name ?? 'Agent';
+  const { feed, approvePending, declinePending, threads, connectedAgent, setActiveThreadId, markThreadRead } = useDemo();
+  const agentName = connectedAgent?.name ?? 'Your agent';
   const [, setLocation] = useLocation();
 
   const firstUnreadThread = threads.find((t: Thread) =>
@@ -267,6 +267,8 @@ function PendingCard({
   ) => void;
   onDecline: () => void;
 }) {
+  const { connectedAgent } = useDemo();
+  const agentName = connectedAgent?.name ?? 'Your agent';
   const { address, isConnected } = useAccount();
   const { connectors, connect } = useConnect();
   const { data: walletClient } = useWalletClient();
@@ -422,8 +424,8 @@ function PendingCard({
             </div>
             <p className="text-[12px] text-muted-foreground/60 leading-relaxed pr-2">
               {USE_METAMASK_DELEGATION
-                ? 'Scout wants delegated periodic USDC authority for real-time market data'
-                : 'Scout wants recurring access to real-time market data'}
+                ? `${agentName} wants delegated periodic USDC authority for real-time market data`
+                : `${agentName} wants recurring access to real-time market data`}
             </p>
           </div>
         </div>

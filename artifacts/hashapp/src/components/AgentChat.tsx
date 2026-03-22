@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp, MessageCircle, Send, Trash2 } from 'lucide-react';
-import { useDemo } from '@/context/DemoContext';
+import { useDemo, type Thread } from '@/context/DemoContext';
 
 const VENICE_BADGE_STYLE = {
   background: 'rgba(100,80,255,0.12)',
@@ -10,7 +10,6 @@ const VENICE_BADGE_STYLE = {
 
 const UNREAD_DOT_STYLE = { background: '#7F77DD' } as const;
 const DEFAULT_SUBJECT = 'New conversation';
-const AGENT_LABEL = 'Agent';
 const ERROR_MESSAGE = 'Reasoning unavailable — check VENICE_API_KEY';
 
 function VeniceBadge({ label = 'Venice' }: { label?: string }) {
@@ -25,13 +24,13 @@ function VeniceBadge({ label = 'Venice' }: { label?: string }) {
   );
 }
 
-function AgentInitial({ size = 28 }: { size?: number }) {
+function AgentInitial({ initial, size = 28 }: { initial: string; size?: number }) {
   return (
     <div
       className="rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white font-semibold"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
-      A
+      {initial}
     </div>
   );
 }
@@ -56,7 +55,11 @@ export function AgentChat() {
     spendPermissions,
     rules,
     feed,
-  } = useDemo() as any;
+    connectedAgent,
+  } = useDemo();
+
+  const agentLabel = connectedAgent?.name ?? 'Agent';
+  const agentInitial = agentLabel.charAt(0).toUpperCase();
 
   const [expanded, setExpanded] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -67,7 +70,7 @@ export function AgentChat() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const activeThread = useMemo(
-    () => threads.find((thread: any) => thread.id === activeThreadId) ?? null,
+    () => threads.find((thread: Thread) => thread.id === activeThreadId) ?? null,
     [threads, activeThreadId],
   );
 
@@ -121,12 +124,12 @@ export function AgentChat() {
         body: JSON.stringify({
           messages: outboundMessages,
           agentContext: {
-            agentLabel: AGENT_LABEL,
+            agentLabel,
             spendPermissions: spendPermissions
-              .filter((permission: any) => permission.state === 'active')
-              .map((permission: any) => ({ vendor: permission.vendor, amount: permission.amount, cadence: permission.cadence })),
-            rulesCount: rules.filter((rule: any) => rule.enabled).length,
-            recentActivity: feed.slice(0, 3).map((item: any) => ({
+              .filter((permission) => permission.state === 'active')
+              .map((permission) => ({ vendor: permission.vendor, amount: permission.amount, cadence: permission.cadence })),
+            rulesCount: rules.filter((rule) => rule.enabled).length,
+            recentActivity: feed.slice(0, 3).map((item) => ({
               merchant: item.merchant,
               amountStr: item.amountStr,
               status: item.status,
@@ -157,18 +160,18 @@ export function AgentChat() {
       setPendingAssistantText('');
       setIsStreaming(false);
     }
-  }, [addMessage, feed, rules, spendPermissions]);
+  }, [addMessage, agentLabel, feed, rules, spendPermissions]);
 
   const handleSend = useCallback(async () => {
     if (!activeThreadId || isStreaming) return;
     const content = inputValue.trim();
     if (!content) return;
 
-    const currentThread = threads.find((thread: any) => thread.id === activeThreadId);
+    const currentThread = threads.find((thread: Thread) => thread.id === activeThreadId);
     if (!currentThread) return;
 
     const nextMessages = [
-      ...currentThread.messages.map((message: any) => ({ role: message.role, content: message.content } as const)),
+      ...currentThread.messages.map((message) => ({ role: message.role, content: message.content } as const)),
       { role: 'user' as const, content },
     ];
 
@@ -203,12 +206,12 @@ export function AgentChat() {
           <ChevronUp size={14} className="text-muted-foreground/30" />
         </div>
         <div className="divide-y divide-white/[0.04]">
-          {threads.map((thread: any) => {
+          {threads.map((thread: Thread) => {
             const lastMessage = thread.messages.at(-1);
             const unread = threadHasUnread(thread);
             return (
               <div key={thread.id} onClick={() => handleOpenThread(thread.id)} className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-white/[0.025] active:bg-white/[0.04] transition-colors">
-                <AgentInitial size={28} />
+                <AgentInitial initial={agentInitial} size={28} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[13px] font-semibold text-foreground truncate">{thread.subject}</span>
@@ -248,9 +251,9 @@ export function AgentChat() {
         </div>
       )}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0">
-        {activeThread.messages.map((message: any) => (
+        {activeThread.messages.map((message) => (
           <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}>
-            {message.role === 'assistant' && <AgentInitial size={24} />}
+            {message.role === 'assistant' && <AgentInitial initial={agentInitial} size={24} />}
             <div className="flex flex-col max-w-[80%]">
               <div className={`px-3 py-2 rounded-xl text-[12px] leading-relaxed ${message.role === 'user' ? 'bg-blue-600/20 text-foreground rounded-br-sm' : 'bg-white/[0.05] text-foreground/90 rounded-bl-sm'}`}>{message.content}</div>
               {message.role === 'assistant' && <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[7px] font-semibold uppercase tracking-wider mt-1 self-start" style={{ background: 'rgba(100,80,255,0.10)', border: '0.5px solid rgba(100,80,255,0.25)', color: '#AFA9EC' }}>Private · Venice</span>}
@@ -259,7 +262,7 @@ export function AgentChat() {
         ))}
         {pendingAssistantText && (
           <div className="flex justify-start gap-2">
-            <AgentInitial size={24} />
+            <AgentInitial initial={agentInitial} size={24} />
             <div className="px-3 py-2 rounded-xl rounded-bl-sm bg-white/[0.05] text-foreground/90 text-[12px] leading-relaxed max-w-[80%]">{pendingAssistantText}<span className="inline-block w-1.5 h-3 bg-primary/40 animate-pulse ml-0.5 rounded-sm" /></div>
           </div>
         )}
