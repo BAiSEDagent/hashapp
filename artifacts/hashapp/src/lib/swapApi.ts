@@ -51,7 +51,7 @@ export async function fetchQuote(params: {
 
 export async function executeSwapViaBackend(params: {
   quote: Record<string, unknown>;
-  mode: 'scout' | 'user';
+  mode: 'agent' | 'user';
 }): Promise<{ txHash?: string; tx?: Record<string, unknown>; success: boolean }> {
   const res = await fetch(`${API_BASE}/swap/execute`, {
     method: 'POST',

@@ -215,21 +215,21 @@ export async function executeSwap(
   return { tx: (data.swap as Record<string, unknown>) ?? data };
 }
 
-function getScoutKey(): Hex {
-  const rawKey = process.env.SCOUT_PRIVATE_KEY?.trim();
-  if (!rawKey) throw new Error('SCOUT_PRIVATE_KEY not configured');
+function getAgentKey(): Hex {
+  const rawKey = (process.env.AGENT_PRIVATE_KEY || process.env.SCOUT_PRIVATE_KEY)?.trim();
+  if (!rawKey) throw new Error('AGENT_PRIVATE_KEY not configured');
   return rawKey.startsWith('0x')
     ? (rawKey as Hex)
     : (`0x${rawKey}` as Hex);
 }
 
-export async function executeSwapWithScoutWallet(
+export async function executeSwapWithAgentWallet(
   quoteResponse: Record<string, unknown>,
   tokenIn?: string,
   amount?: string,
   routing?: string,
 ): Promise<string> {
-  const sessionKey = getScoutKey();
+  const sessionKey = getAgentKey();
   const account = privateKeyToAccount(sessionKey);
 
   if (tokenIn && amount) {

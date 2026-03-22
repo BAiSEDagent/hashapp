@@ -4,7 +4,7 @@ import { X, ExternalLink, Loader2, Zap, MessageCircle, ChevronRight } from 'luci
 import { motion } from 'framer-motion';
 import { useTransactionReceipt, useBlock, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
-import { USE_METAMASK_DELEGATION, SCOUT_SESSION_ADDRESS } from '@/config/delegation';
+import { USE_METAMASK_DELEGATION, AGENT_SESSION_ADDRESS } from '@/config/delegation';
 import { executeDelegationSpend } from '@/lib/delegationSpend';
 import {
   SPEND_PERMISSION_MANAGER_ADDRESS,
@@ -62,7 +62,7 @@ export default function Receipt() {
         console.log('[Spend] Triggering delegated spend...', {
           permissionsContext: delegationContext.slice(0, 20) + '...',
           delegationManager: delegationMgr,
-          recipient: SCOUT_SESSION_ADDRESS,
+          recipient: AGENT_SESSION_ADDRESS,
           amountUsdc: 5,
         });
       }
@@ -70,7 +70,7 @@ export default function Receipt() {
         permissionsContext: delegationContext,
         delegationManager: delegationMgr,
         amountUsdc: 5,
-        recipient: SCOUT_SESSION_ADDRESS,
+        recipient: AGENT_SESSION_ADDRESS,
         spendToken: delegationSpendToken,
       });
       if (import.meta.env.DEV) {

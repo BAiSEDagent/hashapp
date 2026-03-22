@@ -9,7 +9,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
     t.messages.some(m => m.role === 'assistant' && !m.read)
   );
 
-  const scoutBadge = hasUnread ? (
+  const agentBadge = hasUnread ? (
     <span
       className="absolute -top-0.5 -right-0.5 w-[7px] h-[7px] rounded-full"
       style={{ background: '#7F77DD', border: '1.5px solid hsl(var(--background))' }}
@@ -26,7 +26,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         <nav className="absolute bottom-0 w-full h-[72px] bg-background/85 backdrop-blur-xl border-t border-white/[0.06] flex items-center justify-around px-6 z-50">
           <NavItem href="/" icon={<DollarSign size={22} />} label="Money" exact />
           <NavItem href="/activity" icon={<Activity size={22} />} label="Activity" />
-          <NavItem href="/agent" icon={<Bot size={22} />} label="Agent" badge={scoutBadge} />
+          <NavItem href="/agent" icon={<Bot size={22} />} label="Agent" badge={agentBadge} />
           <NavItem href="/rules" icon={<ShieldCheck size={22} />} label="Rules" />
         </nav>
       </div>

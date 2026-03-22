@@ -6,16 +6,15 @@ import { useLocation } from 'wouter';
 import { AgentAvatar } from '@/components/AgentAvatar';
 import { AgentChat } from '@/components/AgentChat';
 import { TruthBadge } from '@/components/TruthBadge';
-import { USE_METAMASK_DELEGATION } from '@/config/delegation';
-import { SCOUT_SESSION_ADDRESS } from '@/config/delegation';
+import { USE_METAMASK_DELEGATION, AGENT_SESSION_ADDRESS } from '@/config/delegation';
 import {
-  SCOUT_SPENDER_ADDRESS,
+  AGENT_SPENDER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ABI,
 } from '@/config/spendPermission';
 
-const scoutAddress = USE_METAMASK_DELEGATION ? SCOUT_SESSION_ADDRESS : SCOUT_SPENDER_ADDRESS;
-const AGENT_ADDRESS_SHORT = `${scoutAddress.slice(0, 6)}...${scoutAddress.slice(-4)}`;
+const agentAddress = USE_METAMASK_DELEGATION ? AGENT_SESSION_ADDRESS : AGENT_SPENDER_ADDRESS;
+const AGENT_ADDRESS_SHORT = `${agentAddress.slice(0, 6)}...${agentAddress.slice(-4)}`;
 
 export default function Agent() {
   const { rules, feed, spendPermissions, recordAgentSwapAndPay, connectedAgent, connectAgent, updateAgentName, disconnectAgent } = useDemo();
@@ -67,8 +66,8 @@ export default function Agent() {
     setAutoPayError(null);
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
-      const agentToken = import.meta.env.VITE_SCOUT_API_TOKEN || '';
-      const res = await fetch(`${API_BASE}/swap/scout-swap-and-pay`, {
+      const agentToken = import.meta.env.VITE_AGENT_API_TOKEN || '';
+      const res = await fetch(`${API_BASE}/swap/agent-swap-and-pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -249,6 +248,22 @@ export default function Agent() {
           {autoPayState === 'done' && (
             <p className="mt-2 text-[10px] text-emerald-400/80">SWAP + PAYMENT recorded in Activity feed with real tx hashes.</p>
           )}
+        </div>
+
+        <div 
+          onClick={handleStartEdit}
+          className="bg-card rounded-2xl p-4 border border-border/30 flex items-center justify-between cursor-pointer hover:bg-white/[0.02] active:bg-white/[0.04] transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center">
+              <Pencil size={16} className="text-primary/80" />
+            </div>
+            <div>
+              <h3 className="text-[13px] font-semibold text-foreground">Edit Agent</h3>
+              <p className="text-[10px] text-muted-foreground/40">Change your agent's display name</p>
+            </div>
+          </div>
+          <ArrowRight size={14} className="text-muted-foreground/20" />
         </div>
 
         <div 

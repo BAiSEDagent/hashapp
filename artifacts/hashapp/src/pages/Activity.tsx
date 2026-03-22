@@ -15,7 +15,7 @@ import { TruthBadge } from '@/components/TruthBadge';
 import {
   SPEND_PERMISSION_MANAGER_ADDRESS,
   SPEND_PERMISSION_MANAGER_ABI,
-  SCOUT_SPENDER_ADDRESS,
+  AGENT_SPENDER_ADDRESS,
   USDC_BASE_SEPOLIA,
 } from '@/config/spendPermission';
 
@@ -322,7 +322,7 @@ function PendingCard({
 
       const permissionArgs = {
         account: address,
-        spender: SCOUT_SPENDER_ADDRESS,
+        spender: AGENT_SPENDER_ADDRESS,
         token: USDC_BASE_SEPOLIA,
         allowance: allowanceRaw,
         period: 86400,

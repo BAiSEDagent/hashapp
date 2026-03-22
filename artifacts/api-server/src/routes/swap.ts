@@ -4,7 +4,7 @@ import {
   checkApproval,
   getQuote,
   executeSwap,
-  executeSwapWithScoutWallet,
+  executeSwapWithAgentWallet,
   estimateUsdFromTokenAmount,
   APPROVED_TOKENS,
   TOKEN_DECIMALS,
@@ -29,7 +29,7 @@ function validateSwapRules(tokenIn: string, tokenOut: string, slippage: number, 
 }
 
 function requireAgentAuth(authHeader: string | undefined): boolean {
-  const token = process.env.AGENT_API_TOKEN || process.env.SCOUT_API_TOKEN;
+  const token = process.env.AGENT_API_TOKEN;
   if (!token) return false;
   if (!authHeader) return false;
   const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
@@ -104,12 +104,12 @@ swapRouter.post('/swap/execute', async (req, res) => {
       return;
     }
 
-    if (mode === 'scout') {
+    if (mode === 'agent') {
       if (!requireAgentAuth(req.headers.authorization)) {
         res.status(401).json({ error: 'Unauthorized: valid AGENT_API_TOKEN required for agent mode' });
         return;
       }
-      const txHash = await executeSwapWithScoutWallet(
+      const txHash = await executeSwapWithAgentWallet(
         quote,
         tokenIn,
         quote.quote?.amount ?? quote.amount,
@@ -128,7 +128,7 @@ swapRouter.post('/swap/execute', async (req, res) => {
   }
 });
 
-swapRouter.post('/swap/scout-swap-and-pay', async (req, res) => {
+swapRouter.post('/swap/agent-swap-and-pay', async (req, res) => {
   try {
     if (!requireAgentAuth(req.headers.authorization)) {
       res.status(401).json({ error: 'Unauthorized: valid AGENT_API_TOKEN required' });
@@ -159,9 +159,9 @@ swapRouter.post('/swap/scout-swap-and-pay', async (req, res) => {
       return;
     }
 
-    const rawKey = process.env.SCOUT_PRIVATE_KEY?.trim();
+    const rawKey = (process.env.AGENT_PRIVATE_KEY || process.env.SCOUT_PRIVATE_KEY)?.trim();
     if (!rawKey) {
-      res.status(500).json({ error: 'SCOUT_PRIVATE_KEY not configured' });
+      res.status(500).json({ error: 'AGENT_PRIVATE_KEY not configured' });
       return;
     }
 
@@ -180,7 +180,7 @@ swapRouter.post('/swap/scout-swap-and-pay', async (req, res) => {
       slippageTolerance: 0.5,
     });
 
-    const swapTxHash = await executeSwapWithScoutWallet(
+    const swapTxHash = await executeSwapWithAgentWallet(
       quoteResult.quote,
       tokenIn,
       amount,
@@ -222,7 +222,7 @@ swapRouter.post('/swap/scout-swap-and-pay', async (req, res) => {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Swap-and-pay failed';
-    console.error('Scout swap-and-pay error:', message);
+    console.error('Agent swap-and-pay error:', message);
     res.status(500).json({ error: message });
   }
 });

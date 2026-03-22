@@ -87,9 +87,9 @@ function getHmacSecret(): string {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('DELEGATION_AUTH_SECRET is required in production. Do not rely on fallback.');
   }
-  const raw = process.env.SCOUT_PRIVATE_KEY?.trim();
-  if (!raw) throw new Error('Neither DELEGATION_AUTH_SECRET nor SCOUT_PRIVATE_KEY configured');
-  console.warn('[DelegationAuth] DELEGATION_AUTH_SECRET not set — falling back to derived secret from SCOUT_PRIVATE_KEY. Set DELEGATION_AUTH_SECRET for production.');
+  const raw = (process.env.AGENT_PRIVATE_KEY || process.env.SCOUT_PRIVATE_KEY)?.trim();
+  if (!raw) throw new Error('Neither DELEGATION_AUTH_SECRET nor AGENT_PRIVATE_KEY configured');
+  console.warn('[DelegationAuth] DELEGATION_AUTH_SECRET not set — falling back to derived secret from AGENT_PRIVATE_KEY. Set DELEGATION_AUTH_SECRET for production.');
   return createHmac('sha256', 'hashapp-delegation-auth-v1').update(raw).digest('hex');
 }
 
@@ -424,7 +424,7 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
       await db.insert(delegationRateLimits).values({ contextKey, count: 1, windowStart: now });
     }
 
-    const rawKey = process.env.SCOUT_PRIVATE_KEY?.trim();
+    const rawKey = (process.env.AGENT_PRIVATE_KEY || process.env.SCOUT_PRIVATE_KEY)?.trim();
     if (!rawKey) {
       res.status(500).json({ error: 'Server configuration error' });
       return;
