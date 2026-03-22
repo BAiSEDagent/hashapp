@@ -102,7 +102,7 @@ export default function Agent() {
           </div>
         </div>
         
-        <h1 className="text-[26px] font-bold tracking-tight mb-1">Scout</h1>
+        <h1 className="text-[26px] font-bold tracking-tight mb-1">Agent</h1>
         <p className="text-[12px] text-muted-foreground/50 mb-1">Research agent · reads markets, files reports</p>
         <p className="text-[10px] text-muted-foreground/30 font-mono tracking-wide mb-1">{SCOUT_ADDRESS_SHORT}</p>
         <p className="text-[9px] text-muted-foreground/20 font-mono tracking-wide mb-4">scout.base.eth</p>
@@ -170,7 +170,7 @@ export default function Agent() {
         <div className="bg-card rounded-2xl p-5 border border-border/30">
           <div className="flex items-center gap-2 mb-4">
             <ArrowLeftRight size={14} className="text-muted-foreground/40" />
-            <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Scout Auto-Pay</span>
+            <span className="text-[12px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Agent Auto-Pay</span>
           </div>
           <p className="text-[11px] text-muted-foreground/40 mb-4">
             Scout can autonomously swap ETH → USDC via Uniswap then pay vendors. This triggers a real onchain swap + USDC transfer on Base Sepolia.
@@ -180,7 +180,7 @@ export default function Agent() {
             disabled={scoutPayState === 'running'}
             className="w-full py-2.5 rounded-xl text-[13px] font-semibold transition-colors bg-primary/10 text-primary hover:bg-primary/20 active:bg-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {scoutPayState === 'running' ? 'Swapping & Paying...' : scoutPayState === 'done' ? 'Done — Check Activity ✓' : 'Trigger Scout Swap → Pay'}
+            {scoutPayState === 'running' ? 'Swapping & Paying...' : scoutPayState === 'done' ? 'Done — Check Activity ✓' : 'Trigger Agent Swap → Pay'}
           </button>
           {scoutPayError && (
             <p className="mt-2 text-[10px] text-rose-400/80">{scoutPayError}</p>

@@ -26,7 +26,7 @@ export function MobileLayout({ children }: { children: React.ReactNode }) {
         <nav className="absolute bottom-0 w-full h-[72px] bg-background/85 backdrop-blur-xl border-t border-white/[0.06] flex items-center justify-around px-6 z-50">
           <NavItem href="/money" icon={<DollarSign size={22} />} label="Money" />
           <NavItem href="/" icon={<Activity size={22} />} label="Activity" />
-          <NavItem href="/agent" icon={<Bot size={22} />} label="Scout" badge={scoutBadge} />
+          <NavItem href="/agent" icon={<Bot size={22} />} label="Agent" badge={scoutBadge} />
           <NavItem href="/rules" icon={<ShieldCheck size={22} />} label="Rules" />
         </nav>
       </div>

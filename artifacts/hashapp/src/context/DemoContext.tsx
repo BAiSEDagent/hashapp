@@ -679,7 +679,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, threads, activeThreadId, agentName: 'Scout', connectedAgent: { name: 'Scout' }, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, disconnectAgent, setActiveThreadId, addThread, addMessage, markThreadRead, linkThreadToTx, deleteThread, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
+    <DemoContext.Provider value={{ feed, rules, spendPermissions, stage, threads, activeThreadId, agentName: 'Agent', connectedAgent: { name: 'Agent' }, privateReasoningEnabled, setPrivateReasoningEnabled, agentAvatarUrl, setAgentAvatarUrl, disconnectAgent, setActiveThreadId, addThread, addMessage, markThreadRead, linkThreadToTx, deleteThread, approvePending, recordDelegationSpend, recordSwap, recordBlockedSwap, recordScoutSwapAndPay, checkSwapRules, declinePending, toggleRule, resetDemo }}>
       {children}
     </DemoContext.Provider>
   );
