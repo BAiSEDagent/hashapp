@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { isAddress } from 'viem';
 import {
   checkApproval,
@@ -29,7 +29,7 @@ function validateSwapRules(tokenIn: string, tokenOut: string, slippage: number, 
 }
 
 function requireAgentAuth(authHeader: string | undefined): boolean {
-  const token = process.env.AGENT_API_TOKEN;
+  const token = process.env.AGENT_API_TOKEN || process.env.SCOUT_API_TOKEN;
   if (!token) return false;
   if (!authHeader) return false;
   const provided = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
@@ -128,7 +128,7 @@ swapRouter.post('/swap/execute', async (req, res) => {
   }
 });
 
-swapRouter.post('/swap/agent-swap-and-pay', async (req, res) => {
+async function handleAgentSwapAndPay(req: Request, res: Response) {
   try {
     if (!requireAgentAuth(req.headers.authorization)) {
       res.status(401).json({ error: 'Unauthorized: valid AGENT_API_TOKEN required' });
@@ -225,7 +225,10 @@ swapRouter.post('/swap/agent-swap-and-pay', async (req, res) => {
     console.error('Agent swap-and-pay error:', message);
     res.status(500).json({ error: message });
   }
-});
+}
+
+swapRouter.post('/swap/agent-swap-and-pay', handleAgentSwapAndPay);
+swapRouter.post('/swap/scout-swap-and-pay', handleAgentSwapAndPay);
 
 swapRouter.get('/swap/tokens', (_req, res) => {
   const tokens = Object.entries(APPROVED_TOKENS).map(([address, symbol]) => ({
