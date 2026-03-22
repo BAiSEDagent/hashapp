@@ -165,7 +165,6 @@ export default function Agent() {
           <button
             onClick={() => {
               disconnectAgent();
-              setLocation('/');
             }}
             className="inline-flex items-center gap-2 text-rose-400/80 hover:text-rose-300 transition-colors"
           >

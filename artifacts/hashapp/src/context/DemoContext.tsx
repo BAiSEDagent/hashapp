@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAccount } from 'wagmi';
 
 export type StatusType = 'APPROVED' | 'AUTO_APPROVED' | 'PENDING' | 'BLOCKED' | 'DECLINED';
 
@@ -287,8 +288,18 @@ const SEED_THREADS: Thread[] = [
 ];
 
 const STORAGE_KEY = 'hashapp_demo_state';
-const AVATAR_STORAGE_KEY = 'hashapp_agent_avatar';
-const AGENT_STORAGE_KEY = 'hashapp_connected_agent';
+const AVATAR_STORAGE_KEY_PREFIX = 'hashapp_agent_avatar';
+const AGENT_STORAGE_KEY_PREFIX = 'hashapp_connected_agent';
+
+function agentKey(walletAddress: string | undefined) {
+  if (!walletAddress) return null;
+  return `${AGENT_STORAGE_KEY_PREFIX}_${walletAddress.toLowerCase()}`;
+}
+
+function avatarKey(walletAddress: string | undefined) {
+  if (!walletAddress) return null;
+  return `${AVATAR_STORAGE_KEY_PREFIX}_${walletAddress.toLowerCase()}`;
+}
 
 function loadPersistedState() {
   try {
@@ -319,20 +330,46 @@ function persistState(feed: FeedItem[], rules: Rule[], spendPermissions: SpendPe
   } catch {}
 }
 
-function loadConnectedAgent(): ConnectedAgent | null {
+function loadConnectedAgent(walletAddress: string | undefined): ConnectedAgent | null {
+  const key = agentKey(walletAddress);
+  if (!key) return null;
   try {
-    const raw = localStorage.getItem(AGENT_STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch {}
   return null;
 }
 
-function persistConnectedAgent(agent: ConnectedAgent | null) {
+function persistConnectedAgent(walletAddress: string | undefined, agent: ConnectedAgent | null) {
+  const key = agentKey(walletAddress);
+  if (!key) return;
   try {
     if (agent) {
-      localStorage.setItem(AGENT_STORAGE_KEY, JSON.stringify(agent));
+      localStorage.setItem(key, JSON.stringify(agent));
     } else {
-      localStorage.removeItem(AGENT_STORAGE_KEY);
+      localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
+function loadAgentAvatar(walletAddress: string | undefined): string | null {
+  const key = avatarKey(walletAddress);
+  if (!key) return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function persistAgentAvatar(walletAddress: string | undefined, url: string | null) {
+  const key = avatarKey(walletAddress);
+  if (!key) return;
+  try {
+    if (url) {
+      localStorage.setItem(key, url);
+    } else {
+      localStorage.removeItem(key);
     }
   } catch {}
 }
@@ -340,6 +377,7 @@ function persistConnectedAgent(agent: ConnectedAgent | null) {
 const DemoContext = createContext<DemoState | undefined>(undefined);
 
 export function DemoProvider({ children }: { children: React.ReactNode }) {
+  const { address: walletAddress } = useAccount();
   const persisted = loadPersistedState();
   const [feed, setFeed] = useState<FeedItem[]>(persisted?.feed ?? INITIAL_FEED);
   const [rules, setRules] = useState<Rule[]>(persisted?.rules ?? INITIAL_RULES);
@@ -349,48 +387,41 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [privateReasoningEnabled, setPrivateReasoningEnabled] = useState(true);
 
-  const [connectedAgent, setConnectedAgent] = useState<ConnectedAgent | null>(() => loadConnectedAgent());
+  const [connectedAgent, setConnectedAgent] = useState<ConnectedAgent | null>(null);
 
-  const [agentAvatarUrl, setAgentAvatarUrlState] = useState<string | null>(() => {
-    try {
-      return localStorage.getItem(AVATAR_STORAGE_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const [agentAvatarUrl, setAgentAvatarUrlState] = useState<string | null>(null);
+
+  useEffect(() => {
+    setConnectedAgent(loadConnectedAgent(walletAddress));
+    setAgentAvatarUrlState(loadAgentAvatar(walletAddress));
+  }, [walletAddress]);
 
   const setAgentAvatarUrl = useCallback((url: string | null) => {
     setAgentAvatarUrlState(url);
-    try {
-      if (url) {
-        localStorage.setItem(AVATAR_STORAGE_KEY, url);
-      } else {
-        localStorage.removeItem(AVATAR_STORAGE_KEY);
-      }
-    } catch {}
-  }, []);
+    persistAgentAvatar(walletAddress, url);
+  }, [walletAddress]);
 
   const connectAgent = useCallback((agent: ConnectedAgent) => {
     setConnectedAgent(agent);
-    persistConnectedAgent(agent);
-  }, []);
+    persistConnectedAgent(walletAddress, agent);
+  }, [walletAddress]);
 
   const updateAgentName = useCallback((name: string) => {
     setConnectedAgent(prev => {
       const updated = { ...prev, name };
-      persistConnectedAgent(updated);
+      persistConnectedAgent(walletAddress, updated);
       return updated;
     });
-  }, []);
+  }, [walletAddress]);
 
   const disconnectAgent = useCallback(() => {
     setConnectedAgent(null);
-    persistConnectedAgent(null);
+    persistConnectedAgent(walletAddress, null);
     setAgentAvatarUrlState(null);
-    try { localStorage.removeItem(AVATAR_STORAGE_KEY); } catch {}
+    persistAgentAvatar(walletAddress, null);
     setThreads([]);
     setActiveThreadId(null);
-  }, []);
+  }, [walletAddress]);
 
   useEffect(() => {
     persistState(feed, rules, spendPermissions, stage, threads);
