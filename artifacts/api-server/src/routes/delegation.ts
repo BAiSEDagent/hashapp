@@ -378,7 +378,30 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     if (idempotencyKey && typeof idempotencyKey === 'string') {
       const [existing] = await db.select().from(delegationIdempotency).where(eq(delegationIdempotency.key, idempotencyKey)).limit(1);
       if (existing) {
+        if (existing.txHash === 'PENDING') {
+          res.status(409).json({ error: 'Spend already in progress for this idempotency key' });
+          return;
+        }
         res.json({ txHash: existing.txHash, success: true, deduplicated: true });
+        return;
+      }
+
+      const [reservation] = await db.insert(delegationIdempotency)
+        .values({ key: idempotencyKey, txHash: 'PENDING', createdAt: Date.now() })
+        .onConflictDoNothing()
+        .returning({ key: delegationIdempotency.key });
+
+      if (!reservation) {
+        const [raced] = await db.select().from(delegationIdempotency).where(eq(delegationIdempotency.key, idempotencyKey)).limit(1);
+        if (raced?.txHash === 'PENDING') {
+          res.status(409).json({ error: 'Spend already in progress for this idempotency key' });
+          return;
+        }
+        if (raced) {
+          res.json({ txHash: raced.txHash, success: true, deduplicated: true });
+          return;
+        }
+        res.status(409).json({ error: 'Unable to reserve idempotency key' });
         return;
       }
     }
@@ -434,13 +457,19 @@ delegationRouter.post('/delegation/spend', async (req, res) => {
     } as Parameters<typeof walletClient.sendTransactionWithDelegation>[0]);
 
     if (idempotencyKey && typeof idempotencyKey === 'string') {
-      await db.insert(delegationIdempotency).values({ key: idempotencyKey, txHash, createdAt: Date.now() });
+      await db.update(delegationIdempotency)
+        .set({ txHash, createdAt: Date.now() })
+        .where(eq(delegationIdempotency.key, idempotencyKey));
     }
 
     console.log('[DelegationSpend] SUCCESS for delegator:', tokenValidation.delegatorAddress?.slice(0, 10) + '...', 'txHash:', txHash);
 
     res.json({ txHash, success: true });
   } catch (error: unknown) {
+    if (typeof req.body?.idempotencyKey === 'string') {
+      await db.delete(delegationIdempotency).where(eq(delegationIdempotency.key, req.body.idempotencyKey));
+    }
+
     const err = error as Record<string, unknown>;
     const rawMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[DelegationSpend] ERROR:', rawMessage);
