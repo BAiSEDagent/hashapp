@@ -1,10 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAccount, useConnect } from 'wagmi';
+import { useLocation } from 'wouter';
 import { Wallet, Shield, Eye, ArrowRight, Loader2, ChevronDown, AlertTriangle } from 'lucide-react';
 import { USE_METAMASK_DELEGATION } from '@/config/delegation';
 
 export function WalletGate({ children }: { children: React.ReactNode }) {
   const { isConnected } = useAccount();
+  const [, setLocation] = useLocation();
+  const wasConnected = useRef(false);
+
+  useEffect(() => {
+    if (!wasConnected.current && isConnected) {
+      setLocation('/agent');
+    }
+    wasConnected.current = isConnected;
+  }, [isConnected, setLocation]);
 
   if (!isConnected) {
     return <LandingPage />;

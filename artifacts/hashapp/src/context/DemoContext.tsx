@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAccount } from 'wagmi';
 
 export type StatusType = 'APPROVED' | 'AUTO_APPROVED' | 'PENDING' | 'BLOCKED' | 'DECLINED';
@@ -378,6 +378,9 @@ const DemoContext = createContext<DemoState | undefined>(undefined);
 
 export function DemoProvider({ children }: { children: React.ReactNode }) {
   const { address: walletAddress } = useAccount();
+  const walletRef = useRef(walletAddress);
+  walletRef.current = walletAddress;
+
   const persisted = loadPersistedState();
   const [feed, setFeed] = useState<FeedItem[]>(persisted?.feed ?? INITIAL_FEED);
   const [rules, setRules] = useState<Rule[]>(persisted?.rules ?? INITIAL_RULES);
@@ -391,38 +394,43 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const [agentAvatarUrl, setAgentAvatarUrlState] = useState<string | null>(null);
 
+  const walletKey = walletAddress?.toLowerCase() ?? '';
+
   useEffect(() => {
-    setConnectedAgent(loadConnectedAgent(walletAddress));
-    setAgentAvatarUrlState(loadAgentAvatar(walletAddress));
-  }, [walletAddress]);
+    const addr = walletRef.current;
+    const agent = loadConnectedAgent(addr);
+    const avatar = loadAgentAvatar(addr);
+    setConnectedAgent(agent);
+    setAgentAvatarUrlState(avatar);
+  }, [walletKey]);
 
   const setAgentAvatarUrl = useCallback((url: string | null) => {
     setAgentAvatarUrlState(url);
-    persistAgentAvatar(walletAddress, url);
-  }, [walletAddress]);
+    persistAgentAvatar(walletRef.current, url);
+  }, []);
 
   const connectAgent = useCallback((agent: ConnectedAgent) => {
     setConnectedAgent(agent);
-    persistConnectedAgent(walletAddress, agent);
-  }, [walletAddress]);
+    persistConnectedAgent(walletRef.current, agent);
+  }, []);
 
   const updateAgentName = useCallback((name: string) => {
     setConnectedAgent(prev => {
       if (!prev) return prev;
       const updated = { ...prev, name };
-      persistConnectedAgent(walletAddress, updated);
+      persistConnectedAgent(walletRef.current, updated);
       return updated;
     });
-  }, [walletAddress]);
+  }, []);
 
   const disconnectAgent = useCallback(() => {
     setConnectedAgent(null);
-    persistConnectedAgent(walletAddress, null);
+    persistConnectedAgent(walletRef.current, null);
     setAgentAvatarUrlState(null);
-    persistAgentAvatar(walletAddress, null);
+    persistAgentAvatar(walletRef.current, null);
     setThreads([]);
     setActiveThreadId(null);
-  }, [walletAddress]);
+  }, []);
 
   useEffect(() => {
     persistState(feed, rules, spendPermissions, stage, threads);
