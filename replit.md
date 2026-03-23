@@ -71,6 +71,12 @@ Hashapp — consumer-grade dark premium spending app for AI agents. Demo-only fr
   - `src/lib/delegationSpend.ts` — POSTs to `/api/delegation/spend` for server-side ERC-7710 redemption
   - `src/config/wallet.ts` — feature-gated connectors (delegation: injected only; fallback: coinbaseWallet)
   - All pages (Activity, Money, Agent, Receipt) are feature-gated for delegation path
+- **Gateway Chat (Venice Track)**: Bidirectional agent-to-human messaging channel with private Venice reasoning.
+  - `src/lib/gatewayClient.ts` — wallet-scoped gateway session storage (`hashapp_gateway_session_{address}`), register/poll/reply/status API calls with explicit session token passing
+  - `src/components/GatewayChat.tsx` — collapsible chat with auto-registration, Venice-branded spend approval cards, API key panel, 3s polling loop. Uses `executeDelegationSpend` for onchain execution
+  - Gateway auto-registers when expanded with a connected agent, shows API key + endpoints for external agents
+  - Spend request cards: Venice-branded approval UI → calls `executeDelegationSpend` → records feed entry with `veniceReasoned: true` → reply to agent
+  - Receipt shows "Private via Venice" attribution when `veniceReasoned` is set
 - **Dependencies**: react, framer-motion, wouter, lucide-react, tailwindcss, clsx, tailwind-merge, wagmi, viem, @metamask/smart-accounts-kit@0.4.0-beta.1
 
 ### `artifacts/api-server` (`@workspace/api-server`)
@@ -81,6 +87,7 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
 - Delegation route: `src/routes/delegation.ts` — `POST /api/delegation/spend` executes ERC-7710 delegated USDC transfers server-side using `SCOUT_PRIVATE_KEY`. Enforces token allowlist (USDC only), delegation manager address check, amount bounds ($0–$1000), and address format validation.
+- Gateway route: `src/routes/gateway.ts` — Bidirectional agent gateway with Venice private reasoning. In-memory session/message storage. Endpoints: `POST /register` (agent registration), `POST /message` (agent→human), `GET /messages` (agent polls human replies), `GET /inbound` (human polls agent messages), `POST /reply` (human→agent), `POST /reason` (Venice AI private reasoning via `VENICE_API_KEY`), `GET /status` (connection check). Auth: agent API key (`hk_*`) for agent endpoints, session token (`hs_*`) for human endpoints.
 - Swap routes: `src/routes/swap.ts` — Uniswap Trading API integration:
   - `POST /api/swap/quote` — Gets a swap quote (check_approval + quote). Server-side validates token allowlist, slippage cap (1%), USD per-swap cap ($50 via estimateUsdFromTokenAmount).
   - `POST /api/swap/execute` — Executes a swap. Mode: `scout` (backend wallet signs, requires SCOUT_API_TOKEN) or `user` (returns unsigned tx). Validates token allowlist + slippage + server-side USD cap.

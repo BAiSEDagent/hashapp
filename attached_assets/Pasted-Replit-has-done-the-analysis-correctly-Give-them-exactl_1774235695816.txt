@@ -1,0 +1,187 @@
+Replit has done the analysis correctly. Give them exactly this — corrections only, nothing they already have right:
+
+---
+
+```
+These are the corrections to apply on top of the plan
+you already have. Do not re-implement what you marked
+as correct. Only apply these four changes.
+
+════════════════════════════════════
+CORRECTION 1
+gatewayClient.ts — wallet-scoped storage key
+════════════════════════════════════
+
+The storage key must be wallet-scoped to prevent
+cross-wallet leaks, matching the hashapp_*_{address}
+pattern already in the codebase.
+
+Replace the STORAGE_KEY constant and all functions
+that use it with this pattern:
+
+import { getAddress } from "viem";
+
+function storageKey(address?: string): string {
+  if (!address) return "hashapp_gateway_session";
+  try {
+    return `hashapp_gateway_session_${getAddress(address)}`;
+  } catch {
+    return "hashapp_gateway_session";
+  }
+}
+
+export function getSession(address?: string): GatewaySession | null {
+  try {
+    const raw = localStorage.getItem(storageKey(address));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setSession(
+  session: GatewaySession,
+  address?: string
+): void {
+  localStorage.setItem(storageKey(address), JSON.stringify(session));
+}
+
+export function clearSession(address?: string): void {
+  localStorage.removeItem(storageKey(address));
+}
+
+// registerAgent, pollInbound, sendReply, checkStatus
+// stay the same — they don't touch storage directly
+
+
+════════════════════════════════════
+CORRECTION 2
+DemoContext.tsx — three changes
+════════════════════════════════════
+
+Change A — add veniceReasoned to FeedItem interface:
+  veniceReasoned?: boolean;
+
+Change B — expose setFeed in DemoState interface
+and provider value:
+  setFeed: React.Dispatch<React.SetStateAction<FeedItem[]>>;
+
+Change C — update recordDelegationSpend to accept
+veniceReasoned as fifth parameter:
+
+  recordDelegationSpend(
+    permissionId: string,
+    amount: number,
+    txHash: `0x${string}`,
+    threadId?: string,
+    veniceReasoned?: boolean
+  ): void
+
+Inside the function, add veniceReasoned to the feed entry:
+  veniceReasoned: veniceReasoned ?? false,
+
+
+════════════════════════════════════
+CORRECTION 3
+GatewayChat.tsx — four targeted fixes
+════════════════════════════════════
+
+Fix A — import useAccount from wagmi and use it
+for wallet address in registration:
+
+import { useAccount } from "wagmi";
+
+// Inside GatewayChat component:
+const { address } = useAccount();
+
+// Pass address to session functions:
+const [session, setSession_] = useState<GatewaySession | null>(
+  () => getSession(address)
+);
+
+// When registering:
+registerAgent(
+  connectedAgent.name,
+  address ?? ""
+)
+  .then((s) => {
+    setSession_(s);
+    setSessionStore(s, address); // wallet-scoped write
+    setShowApiKey(true);
+  })
+  .catch(() => {});
+
+// When disconnecting:
+clearSession(address);
+
+Note: rename local state setter to setSession_ to avoid
+collision with the exported setSession from gatewayClient.
+
+Fix B — use existing AgentAvatar component.
+Remove the inline AgentAvatar function entirely.
+Import the existing one:
+
+import { AgentAvatar } from "@/components/AgentAvatar";
+
+If the existing AgentAvatar has a different prop signature
+than { name: string, size?: number }, adapt the call sites
+to match the existing component's actual props.
+
+Fix C — use recordDelegationSpend not recordExecutedSpend.
+In the useDemo() destructure, replace:
+  recordExecutedSpend,
+with:
+  recordDelegationSpend,
+
+In handleApproveSpend, replace the recordExecutedSpend call:
+
+// Remove:
+recordExecutedSpend(
+  perm.id,
+  amount,
+  txHash,
+  activeThreadId ?? undefined
+);
+
+// Add:
+recordDelegationSpend(
+  perm.id,
+  amount,
+  txHash,
+  activeThreadId ?? undefined,
+  true // veniceReasoned
+);
+
+// Remove the setFeed patch block — veniceReasoned is now
+// set directly inside recordDelegationSpend, no patch needed.
+
+Fix D — use correct delegation spend route.
+In handleApproveSpend, the fetch call must use the
+current Replit delegation route, not /test/spend.
+
+You told me the current route is POST /delegation/spend
+with spend token auth. Use that route and auth pattern.
+
+Find the existing delegation spend execution in the
+current codebase (the demo actions strip uses it).
+Match that exact fetch call — same URL, same headers,
+same body shape, same response handling.
+
+Do not guess the route shape. Read the existing
+working call and replicate it exactly in
+handleApproveSpend.
+
+
+════════════════════════════════════
+EVERYTHING ELSE
+════════════════════════════════════
+
+gateway.ts — verbatim from Claude's prompt
+index.ts modification — verbatim
+Receipt.tsx Venice attribution block — verbatim
+scripts/demo-agent.ts — verbatim
+Agent.tsx swap AgentChat → GatewayChat — verbatim
+
+Do not re-implement those. Only apply the four
+corrections above.
+```

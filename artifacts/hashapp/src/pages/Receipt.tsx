@@ -78,7 +78,7 @@ export default function Receipt() {
       }
       setSpendTxHash(result.txHash);
       if (linkedPerm) {
-        recordDelegationSpend(linkedPerm.id, result.txHash);
+        recordDelegationSpend(linkedPerm.id, 5, result.txHash as `0x${string}`, activeThreadId ?? undefined);
       }
       if (activeThreadId) {
         linkThreadToTx(activeThreadId, result.txHash);
@@ -242,6 +242,36 @@ export default function Receipt() {
               </>
             )}
           </div>
+
+          {item.veniceReasoned && (
+            <div
+              className="w-full rounded-2xl p-5 border mt-3"
+              style={{
+                background: "rgba(100,80,255,0.06)",
+                borderColor: "rgba(100,80,255,0.2)",
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-muted-foreground/50">
+                  Reasoning
+                </span>
+                <span
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-lg"
+                  style={{
+                    background: "rgba(100,80,255,0.10)",
+                    border: "0.5px solid rgba(100,80,255,0.25)",
+                    color: "#AFA9EC",
+                  }}
+                >
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: "#7F77DD" }}
+                  />
+                  Private via Venice
+                </span>
+              </div>
+            </div>
+          )}
 
           {(() => {
             const linkedThread = item.txHash

@@ -40,6 +40,7 @@ export interface FeedItem {
   spendToken?: string;
   type?: FeedItemType;
   swapDetails?: SwapDetails;
+  veniceReasoned?: boolean;
 }
 
 export interface SpendPermission {
@@ -131,9 +132,13 @@ export interface DemoState {
       spendToken?: string;
     },
   ) => void;
+  setFeed: React.Dispatch<React.SetStateAction<FeedItem[]>>;
   recordDelegationSpend: (
     permissionId: string,
-    txHash: string,
+    amount: number,
+    txHash: `0x${string}`,
+    threadId?: string,
+    veniceReasoned?: boolean,
   ) => void;
   recordSwap: (params: {
     txHash: string;
@@ -566,7 +571,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const recordDelegationSpend = useCallback((
     permissionId: string,
-    txHash: string,
+    amount: number,
+    txHash: `0x${string}`,
+    threadId?: string,
+    veniceReasoned?: boolean,
   ) => {
     const perm = spendPermissions.find(p => p.id === permissionId);
     if (!perm) return;
@@ -577,8 +585,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       merchant: perm.vendor,
       merchantColor: perm.vendorColor,
       merchantInitial: perm.vendorInitial,
-      amount: 5.00,
-      amountStr: '$5.00',
+      amount,
+      amountStr: `$${amount.toFixed(2)}`,
       intent: `Redeemed delegated spend — ${perm.vendor}`,
       status: 'APPROVED',
       statusMessage: 'Delegated spend executed onchain',
@@ -588,6 +596,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       isReal: true,
       onchainVerified: true,
       isDelegation: true,
+      veniceReasoned: veniceReasoned ?? false,
     };
     setFeed(prev => [spendItem, ...prev]);
   }, [spendPermissions]);
@@ -814,6 +823,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       markThreadRead,
       linkThreadToTx,
       deleteThread,
+      setFeed,
       approvePending,
       recordDelegationSpend,
       recordSwap,

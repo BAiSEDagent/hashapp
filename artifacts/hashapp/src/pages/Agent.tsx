@@ -4,7 +4,7 @@ import { useAccount, useReadContract } from 'wagmi';
 import { useDemo } from '@/context/DemoContext';
 import { useLocation } from 'wouter';
 import { AgentAvatar } from '@/components/AgentAvatar';
-import { AgentChat } from '@/components/AgentChat';
+import { GatewayChat } from '@/components/GatewayChat';
 import { TruthBadge } from '@/components/TruthBadge';
 import { USE_METAMASK_DELEGATION, AGENT_SESSION_ADDRESS } from '@/config/delegation';
 import {
@@ -187,7 +187,7 @@ export default function Agent() {
           </div>
         )}
 
-        <AgentChat />
+        <GatewayChat />
 
         <div className="bg-card rounded-2xl p-5 border border-border/30">
           <div className="flex items-center gap-2 mb-4">
