@@ -1,54 +1,112 @@
 # Hashapp
 
-Hashapp is a BYOA money app for agents — a consumer-grade control, proof, and receipt layer for agentic spending.
+Hashapp is a BYOA money app for agents — a control, proof, and receipt layer for agentic spending.
 
-## Purpose
-This repo is for:
-- product truth
-- architecture
-- proof framing
-- partner-track strategy
-- demo planning for Synthesis
-- integrated app direction
+Humans connect a wallet, link an agent, set bounded authority, approve or deny requests, and inspect what happened afterward through readable receipts and onchain proof.
 
-## Product Thesis
-Hashapp lets humans link agents, set bounded authority, approve or auto-approve actions, and verify what those agents did through clear receipts and onchain proof.
+## What Hashapp is
+Hashapp is built around one idea:
 
-## Product Positioning
-Hashapp is not a generic wallet manager and not a generic swap app. It is the money app for AI agents — a consumer-grade interface for bounded authority, funding, approvals, monitoring, and proof.
+**agents should be able to act with bounded authority, not blank-check access.**
 
-## Core Problem
-People can let agents spend money, but they still lack a simple, trustworthy interface to:
-- set boundaries
-- approve or deny purchases
-- auto-approve safe ones
-- inspect receipts afterward
+That means the product focuses on:
+- linking agents to a human-controlled wallet
+- defining spend boundaries and approval rules
+- making agent actions legible
+- producing proof and receipts after money moves
+
+Hashapp is **not**:
+- a generic wallet manager
+- a generic trading terminal
+- a chat shell with a wallet bolted on
+
+## Current thesis
+Hashapp lets humans:
+- link agents
+- set bounded authority
+- approve or auto-approve safe actions
+- monitor activity in a readable feed
 - revoke access instantly
+- verify outcomes through onchain proof
 
-## Strategy
-Build broad, demo narrow.
+## What is real today
+The strongest proven part of Hashapp today is the **bounded spend / proof layer**.
 
-Use agents to build broad surface area quickly, but present a single crystal-clear story in the live demo.
+From the current proof work in this repo:
+- a human smart wallet can grant an agent bounded spend authority
+- the agent can spend within those bounds successfully
+- out-of-policy behavior is rejected onchain with named errors
+- the proof runs on Base Sepolia using audited infrastructure
 
-## Current demo lane
-Research agent.
+See:
+- [`TRACK1_PROOF.md`](./TRACK1_PROOF.md)
+- [`SPEND_PERMISSIONS.md`](./SPEND_PERMISSIONS.md)
 
-## Product Shape
-- Cash App-style UX
-- mobile-first
-- agent identity with avatars / ENS / Basenames
-- trusted payees and services
-- activity feed with readable receipts
-- human control over autonomous spending
+## Venice track fit
+Venice fits Hashapp as an **optional private reasoning layer** behind money decisions.
 
-## Repo structure
-- `/` — only the product-facing and proof-critical entry points
-- `/docs/product` — product truth, UX, policy, flows, onboarding
-- `/docs/proof` — proof, audit, and demo framing
-- `/docs/ops` — Replit handoff, execution notes, polish checklist
-- `/docs/strategy` — roadmap, backlog, partner strategy
-- `/partner-tracks` — partner-specific narratives and submission framing
-- `/app` — integrated app workspace when/if included
+Best framing:
+- private cognition
+- trusted public action
+- user-controlled privacy
 
-## Near-Term Goal
-Make the Synthesis submission look like one coherent product repo, not a scratchpad.
+In Hashapp, Venice should help with things like:
+- evaluating new vendors
+- reviewing unusual charges
+- escalating ambiguous requests
+- adding a private reasoning layer before a human approves a spend
+
+Important:
+- Venice is **not** the product
+- Venice is a capability layer inside the product
+- the right UX framing is **Private Review**, not “Venice Mode”
+
+See:
+- [`partner-tracks/VENICE.md`](./partner-tracks/VENICE.md)
+
+## MetaMask track fit
+Hashapp is strongly aligned with MetaMask’s delegation direction because the core user promise is bounded agent authority.
+
+Submission-relevant proof already points to:
+- scoped spending permissions
+- delegated spend execution
+- rejection of out-of-policy actions
+- auditable onchain history
+
+## Uniswap track fit
+Uniswap fits Hashapp when framed as **Swap to Pay**, not as a generic DEX UI.
+
+The strategic role of Uniswap inside Hashapp is:
+- letting agents or humans move into the right asset to complete a payment
+- preserving transparency and composability
+- keeping settlement inside the same money-action flow
+
+## Demo lane
+Current demo lane:
+- **Research agent**
+
+The clean demo story is:
+1. human links an agent
+2. human gives bounded authority
+3. agent requests or executes a payment within policy
+4. human sees the request / approval state
+5. result appears with proof and receipt context
+
+## Repo guide
+- `/app` — integrated application workspace
+- `/docs` — product, proof, ops, and strategy docs
+- `/partner-tracks` — sponsor-specific framing
+- `/scripts` — helper scripts and demo utilities
+- `/TRACK1_PROOF.md` — current proof summary
+- `/PRODUCT.md` — product truth
+
+## Read this next
+If you are evaluating the project, start here:
+- [`PRODUCT.md`](./PRODUCT.md)
+- [`TRACK1_PROOF.md`](./TRACK1_PROOF.md)
+- [`partner-tracks/VENICE.md`](./partner-tracks/VENICE.md)
+
+## Honest status
+Hashapp is best understood today as a serious prototype with real proof in the bounded-spend layer and a strong product thesis around agent control, approvals, and receipting.
+
+The repo already contains product framing, partner-track strategy, and proof work. The job now is to compress that into one coherent submission story without overclaiming what is not yet proven.
