@@ -85,6 +85,7 @@ function SpendRequestCard({
   const amount = Number(message.metadata?.amount ?? 0);
   const [stage, setStage] = useState<ApprovalStage>("idle");
   const [loading, setLoading] = useState(false);
+  const [denialReason, setDenialReason] = useState<string | null>(null);
 
   const isDone = stage === "confirmed" || stage === "denied";
   const isInProgress = loading && !isDone;
@@ -135,13 +136,13 @@ function SpendRequestCard({
 
           {isDone ? (
             <div
-              className={`text-center py-2 rounded-xl text-[12px] font-semibold ${
+              className={`text-center py-2 px-3 rounded-xl text-[12px] font-semibold ${
                 stage === "confirmed"
                   ? "bg-green-500/10 text-green-400"
                   : "bg-red-500/10 text-red-400"
               }`}
             >
-              {STAGE_LABELS[stage]}
+              {stage === "denied" && denialReason ? denialReason : STAGE_LABELS[stage]}
             </div>
           ) : isInProgress ? (
             <div className="py-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
@@ -171,7 +172,8 @@ function SpendRequestCard({
                   try {
                     await onApprove(vendor, amount, message.id, setStage);
                     setStage("confirmed");
-                  } catch {
+                  } catch (err: any) {
+                    setDenialReason(err?.message || null);
                     setStage("denied");
                   } finally {
                     setLoading(false);
@@ -260,6 +262,9 @@ export function GatewayChat() {
     activeThreadId,
     recordDelegationSpend,
     connectedAgent,
+    rules,
+    feed,
+    setFeed,
   } = useDemo();
 
   const { address } = useAccount();
@@ -321,6 +326,66 @@ export function GatewayChat() {
 
   const handleApproveSpend = useCallback(
     async (vendor: string, amount: number, _messageId: string, setStageCb?: (s: ApprovalStage) => void) => {
+      const isRuleEnabled = (id: string) => rules.find((r) => r.id === id)?.enabled ?? false;
+
+      const denySpend = async (reason: string) => {
+        const blockedEntry: import("@/context/DemoContext").FeedItem = {
+          id: `blocked-${Date.now()}`,
+          dateGroup: "TODAY",
+          merchant: vendor,
+          merchantColor: "bg-purple-600",
+          merchantInitial: vendor.charAt(0).toUpperCase(),
+          amount,
+          amountStr: `$${amount.toFixed(2)}`,
+          intent: reason,
+          status: "BLOCKED",
+          statusMessage: reason,
+          timestamp: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
+          category: "Delegated Spend",
+          veniceReasoned: true,
+        };
+        setFeed((prev) => [blockedEntry, ...prev]);
+        await sendReply(reason, session?.sessionToken ?? "");
+        throw new Error(reason);
+      };
+
+      if (isRuleEnabled("r4")) {
+        await denySpend("Denied: spend permissions are currently blocked");
+      }
+
+      if (isRuleEnabled("r2") && amount > 50) {
+        await denySpend(`Denied: $${amount.toFixed(2)} exceeds per-purchase cap of $50 USDC`);
+      }
+
+      if (isRuleEnabled("r3")) {
+        const todaySpend = feed
+          .filter((f) => f.dateGroup === "TODAY" && (f.status === "APPROVED" || f.status === "AUTO_APPROVED"))
+          .reduce((sum, f) => sum + f.amount, 0);
+        if (todaySpend + amount > 200) {
+          await denySpend(`Denied: would exceed daily limit of $200 USDC (today: $${todaySpend.toFixed(2)} + $${amount.toFixed(2)})`);
+        }
+      }
+
+      if (isRuleEnabled("r1")) {
+        const hasPermission = spendPermissions.some(
+          (p) => p.vendor.toLowerCase() === vendor.toLowerCase() && p.state === "active"
+        );
+        if (!hasPermission) {
+          await denySpend(`Denied: vendor "${vendor}" not in approved list`);
+        }
+      }
+
+      if (isRuleEnabled("r5")) {
+        const hasHistory = feed.some(
+          (f) =>
+            f.merchant.toLowerCase() === vendor.toLowerCase() &&
+            (f.status === "APPROVED" || f.status === "AUTO_APPROVED")
+        );
+        if (!hasHistory) {
+          await denySpend(`Denied: new vendor "${vendor}" requires manual approval`);
+        }
+      }
+
       const perm = spendPermissions.find(
         (p) =>
           p.vendor.toLowerCase() === vendor.toLowerCase() &&
@@ -445,7 +510,7 @@ export function GatewayChat() {
         throw e;
       }
     },
-    [spendPermissions, activeThreadId, recordDelegationSpend, session, address]
+    [spendPermissions, activeThreadId, recordDelegationSpend, session, address, rules, feed, setFeed]
   );
 
   const handleDenySpend = useCallback(async (_messageId: string) => {
