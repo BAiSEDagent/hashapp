@@ -407,6 +407,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const walletKey = walletAddress?.toLowerCase() ?? '';
 
   useEffect(() => {
+    hydratedRef.current = false;
     const addr = walletRef.current;
     const agent = loadConnectedAgent(addr);
     const avatar = loadAgentAvatar(addr);
