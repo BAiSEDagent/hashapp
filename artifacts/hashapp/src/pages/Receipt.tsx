@@ -226,18 +226,59 @@ export default function Receipt() {
                 {confirmedAt && (
                   <DetailRow label="Confirmed" value={confirmedAt} />
                 )}
+
+                {item.swapTxHash && (
+                  <div className="flex items-center justify-between py-4 border-t border-white/[0.05]">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[11px] text-muted-foreground/40 font-medium">Swap</span>
+                      <span className="text-[9px] text-pink-400/60 font-medium">
+                        {item.swapDetails
+                          ? `${item.swapDetails.amountIn} ${item.swapDetails.tokenInSymbol} → ${item.swapDetails.amountOut} ${item.swapDetails.tokenOutSymbol}`
+                          : "ETH → USDC"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] text-pink-400/50 font-medium uppercase">Uniswap</span>
+                      <a
+                        href={`https://sepolia.basescan.org/tx/${item.swapTxHash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-[11px] font-medium text-pink-400/80 hover:text-pink-400 transition-colors"
+                      >
+                        {item.swapTxHash.slice(0, 10)}...{item.swapTxHash.slice(-6)}
+                        <ExternalLink size={9} />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between py-4 border-t border-white/[0.05]">
-                  <span className="text-[11px] text-muted-foreground/40 font-medium">Transaction</span>
-                  <a
-                    href={`https://sepolia.basescan.org/tx/${item.txHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 text-[11px] font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors"
-                  >
-                    {item.txHash!.slice(0, 10)}...{item.txHash!.slice(-6)}
-                    <ExternalLink size={9} />
-                  </a>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] text-muted-foreground/40 font-medium">
+                      {item.swapTxHash ? "Spend" : "Transaction"}
+                    </span>
+                    {item.swapTxHash && (
+                      <span className="text-[9px] text-emerald-400/60 font-medium">
+                        {item.amountStr} USDC
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {item.swapTxHash && (
+                      <span className="text-[9px] text-emerald-400/50 font-medium uppercase">Delegation</span>
+                    )}
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${item.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center gap-1 text-[11px] font-medium text-emerald-400/80 hover:text-emerald-400 transition-colors"
+                    >
+                      {item.txHash!.slice(0, 10)}...{item.txHash!.slice(-6)}
+                      <ExternalLink size={9} />
+                    </a>
+                  </div>
                 </div>
               </>
             )}

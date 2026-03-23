@@ -14,7 +14,9 @@ import {
 import { useDemo } from "@/context/DemoContext";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { executeDelegationSpend } from "@/lib/delegationSpend";
-import { AGENT_SESSION_ADDRESS } from "@/config/delegation";
+import { AGENT_SESSION_ADDRESS, USDC_BASE_SEPOLIA } from "@/config/delegation";
+import { getUsdcBalance } from "@/lib/usdcBalance";
+import type { SwapDetails } from "@/context/DemoContext";
 
 const VENICE_BADGE_STYLE = {
   background: "rgba(100,80,255,0.12)",
@@ -57,6 +59,17 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+type ApprovalStage = "idle" | "checking_balance" | "swapping" | "executing" | "confirmed" | "denied";
+
+const STAGE_LABELS: Record<ApprovalStage, string> = {
+  idle: "",
+  checking_balance: "Checking balance\u2026",
+  swapping: "Swapping ETH \u2192 USDC via Uniswap\u2026",
+  executing: "Executing spend\u2026",
+  confirmed: "Confirmed",
+  denied: "Denied",
+};
+
 function SpendRequestCard({
   message,
   agentName,
@@ -65,13 +78,16 @@ function SpendRequestCard({
 }: {
   message: GatewayMessage;
   agentName: string;
-  onApprove: (vendor: string, amount: number, messageId: string) => Promise<void>;
+  onApprove: (vendor: string, amount: number, messageId: string, setStageCb: (s: ApprovalStage) => void) => Promise<void>;
   onDeny: (messageId: string) => Promise<void>;
 }) {
   const vendor = String(message.metadata?.vendor ?? "Unknown vendor");
   const amount = Number(message.metadata?.amount ?? 0);
-  const [acted, setActed] = useState<"approved" | "denied" | null>(null);
+  const [stage, setStage] = useState<ApprovalStage>("idle");
   const [loading, setLoading] = useState(false);
+
+  const isDone = stage === "confirmed" || stage === "denied";
+  const isInProgress = loading && !isDone;
 
   return (
     <div className="w-full">
@@ -117,15 +133,22 @@ function SpendRequestCard({
             {message.content}
           </p>
 
-          {acted ? (
+          {isDone ? (
             <div
               className={`text-center py-2 rounded-xl text-[12px] font-semibold ${
-                acted === "approved"
+                stage === "confirmed"
                   ? "bg-green-500/10 text-green-400"
                   : "bg-red-500/10 text-red-400"
               }`}
             >
-              {acted === "approved" ? "Approved" : "Denied"}
+              {STAGE_LABELS[stage]}
+            </div>
+          ) : isInProgress ? (
+            <div className="py-2 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+              <div className="flex items-center justify-center gap-2 text-[11px] text-primary/70 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-pulse" />
+                {STAGE_LABELS[stage]}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
@@ -134,7 +157,7 @@ function SpendRequestCard({
                 onClick={async () => {
                   setLoading(true);
                   await onDeny(message.id);
-                  setActed("denied");
+                  setStage("denied");
                   setLoading(false);
                 }}
                 className="py-2.5 rounded-xl text-[12px] font-semibold text-muted-foreground/60 bg-white/[0.05] hover:bg-white/[0.09] transition-colors disabled:opacity-40"
@@ -146,17 +169,17 @@ function SpendRequestCard({
                 onClick={async () => {
                   setLoading(true);
                   try {
-                    await onApprove(vendor, amount, message.id);
-                    setActed("approved");
+                    await onApprove(vendor, amount, message.id, setStage);
+                    setStage("confirmed");
                   } catch {
-                    setActed("denied");
+                    setStage("denied");
                   } finally {
                     setLoading(false);
                   }
                 }}
                 className="py-2.5 rounded-xl text-[12px] font-semibold text-white bg-primary/80 hover:bg-primary transition-colors disabled:opacity-40"
               >
-                {loading ? "Executing..." : "Approve →"}
+                Approve →
               </button>
             </div>
           )}
@@ -297,7 +320,7 @@ export function GatewayChat() {
   }, [expanded]);
 
   const handleApproveSpend = useCallback(
-    async (vendor: string, amount: number, _messageId: string) => {
+    async (vendor: string, amount: number, _messageId: string, setStageCb?: (s: ApprovalStage) => void) => {
       const perm = spendPermissions.find(
         (p) =>
           p.vendor.toLowerCase() === vendor.toLowerCase() &&
@@ -315,7 +338,73 @@ export function GatewayChat() {
         throw new Error(`No active delegation permission for ${vendor}`);
       }
 
+      let swapTxHash: string | undefined;
+      let swapDetails: SwapDetails | undefined;
+
       try {
+        setStageCb?.("checking_balance");
+
+        let needsSwap = false;
+        if (address) {
+          try {
+            const usdcBalance = await getUsdcBalance(address as `0x${string}`);
+            needsSwap = usdcBalance < amount;
+            if (import.meta.env.DEV) {
+              console.log(`[Settlement] USDC balance: ${usdcBalance}, need: ${amount}, swap needed: ${needsSwap}`);
+            }
+          } catch (balanceErr) {
+            if (import.meta.env.DEV) {
+              console.warn("[Settlement] Balance check failed, proceeding without swap:", balanceErr);
+            }
+          }
+        }
+
+        if (needsSwap) {
+          setStageCb?.("swapping");
+
+          const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+          const ETH_ADDRESS = "0x0000000000000000000000000000000000000000";
+          const swapAmountWei = String(Math.ceil(amount * 0.004) * 1e15);
+
+          const swapRes = await fetch(`${API_BASE}/gateway/settlement-swap`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.sessionToken ?? ""}`,
+            },
+            body: JSON.stringify({
+              amount: swapAmountWei,
+              swapper: address,
+            }),
+          });
+
+          if (!swapRes.ok) {
+            const body = await swapRes.json().catch(() => ({ error: "Settlement swap failed" }));
+            throw new Error(`Settlement swap failed: ${body.error}`);
+          }
+
+          const swapData = await swapRes.json();
+          swapTxHash = swapData.txHash;
+
+          const amountOutUsdc = swapData.outputAmount
+            ? (Number(swapData.outputAmount) / 1e6).toFixed(2)
+            : String(amount);
+
+          swapDetails = {
+            tokenIn: ETH_ADDRESS,
+            tokenOut: USDC_BASE_SEPOLIA,
+            tokenInSymbol: "ETH",
+            tokenOutSymbol: "USDC",
+            amountIn: (Number(swapAmountWei) / 1e18).toFixed(4),
+            amountOut: amountOutUsdc,
+            exchangeRate: "",
+            gasCostUSD: swapData.gasFeeUSD || "0",
+            priceImpact: swapData.priceImpact ?? 0,
+          };
+        }
+
+        setStageCb?.("executing");
+
         const result = await executeDelegationSpend({
           permissionsContext: perm.permissionsContext,
           delegationManager: perm.delegationManager,
@@ -339,13 +428,16 @@ export function GatewayChat() {
           amount,
           txHash,
           activeThreadId ?? undefined,
-          true
+          true,
+          swapTxHash,
+          swapDetails
         );
 
-        await sendReply(
-          `Approved: ${vendor} $${amount.toFixed(2)} — tx ${txHash}`,
-          session?.sessionToken ?? ""
-        );
+        const replyParts = [`Approved: ${vendor} $${amount.toFixed(2)} — spend tx ${txHash}`];
+        if (swapTxHash) {
+          replyParts.push(`Settlement swap tx: ${swapTxHash}`);
+        }
+        await sendReply(replyParts.join("\n"), session?.sessionToken ?? "");
       } catch (e: any) {
         if (!e.message?.includes("No active delegation") && !e.message?.includes("no transaction hash")) {
           await sendReply(`Denied: ${e.message}`, session?.sessionToken ?? "");
@@ -353,7 +445,7 @@ export function GatewayChat() {
         throw e;
       }
     },
-    [spendPermissions, activeThreadId, recordDelegationSpend, session]
+    [spendPermissions, activeThreadId, recordDelegationSpend, session, address]
   );
 
   const handleDenySpend = useCallback(async (_messageId: string) => {

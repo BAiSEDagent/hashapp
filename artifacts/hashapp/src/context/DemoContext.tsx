@@ -40,6 +40,7 @@ export interface FeedItem {
   spendToken?: string;
   type?: FeedItemType;
   swapDetails?: SwapDetails;
+  swapTxHash?: string;
   veniceReasoned?: boolean;
 }
 
@@ -139,6 +140,8 @@ export interface DemoState {
     txHash: `0x${string}`,
     threadId?: string,
     veniceReasoned?: boolean,
+    swapTxHash?: string,
+    swapDetails?: SwapDetails,
   ) => void;
   recordSwap: (params: {
     txHash: string;
@@ -575,6 +578,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     txHash: `0x${string}`,
     threadId?: string,
     veniceReasoned?: boolean,
+    swapTxHash?: string,
+    swapDetails?: SwapDetails,
   ) => {
     const perm = spendPermissions.find(p => p.id === permissionId);
     if (!perm) return;
@@ -587,9 +592,13 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       merchantInitial: perm.vendorInitial,
       amount,
       amountStr: `$${amount.toFixed(2)}`,
-      intent: `Redeemed delegated spend — ${perm.vendor}`,
+      intent: swapTxHash
+        ? `Swapped ETH → USDC via Uniswap, then redeemed delegated spend — ${perm.vendor}`
+        : `Redeemed delegated spend — ${perm.vendor}`,
       status: 'APPROVED',
-      statusMessage: 'Delegated spend executed onchain',
+      statusMessage: swapTxHash
+        ? 'Settlement swap + delegated spend executed onchain'
+        : 'Delegated spend executed onchain',
       timestamp: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
       category: 'Delegated Spend',
       txHash,
@@ -597,6 +606,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       onchainVerified: true,
       isDelegation: true,
       veniceReasoned: veniceReasoned ?? false,
+      swapTxHash,
+      swapDetails,
     };
     setFeed(prev => [spendItem, ...prev]);
   }, [spendPermissions]);

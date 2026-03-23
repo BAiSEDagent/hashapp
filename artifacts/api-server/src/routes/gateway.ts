@@ -1,5 +1,11 @@
 import { Router } from "express";
 import crypto from "crypto";
+import {
+  getQuote,
+  executeSwapWithAgentWallet,
+  estimateUsdFromTokenAmount,
+  APPROVED_TOKENS,
+} from "../lib/uniswap.js";
 
 const router = Router();
 
@@ -297,6 +303,62 @@ router.get("/status", (req, res) => {
   }
 
   return res.status(401).json({ connected: false });
+});
+
+const MAX_SETTLEMENT_SWAP_USD = 50;
+const USDC_ADDRESS = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const ETH_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+router.post("/settlement-swap", async (req, res) => {
+  const agentKey = requireSessionAuth(req, res);
+  if (!agentKey) return;
+
+  const { amount, swapper } = req.body as {
+    amount?: string;
+    swapper?: string;
+  };
+
+  if (!amount || !swapper) {
+    return res.status(400).json({ error: "amount (wei) and swapper address required" });
+  }
+
+  const estimatedUsd = estimateUsdFromTokenAmount(ETH_ADDRESS, amount);
+  if (estimatedUsd > MAX_SETTLEMENT_SWAP_USD) {
+    return res.status(403).json({ error: `Settlement swap exceeds $${MAX_SETTLEMENT_SWAP_USD} cap` });
+  }
+
+  if (!APPROVED_TOKENS[ETH_ADDRESS] || !APPROVED_TOKENS[USDC_ADDRESS]) {
+    return res.status(403).json({ error: "Token not approved" });
+  }
+
+  try {
+    const quoteResult = await getQuote({
+      tokenIn: ETH_ADDRESS,
+      tokenOut: USDC_ADDRESS,
+      amount,
+      swapper,
+      slippageTolerance: 0.5,
+    });
+
+    const txHash = await executeSwapWithAgentWallet(
+      quoteResult.quote,
+      ETH_ADDRESS,
+      amount,
+      quoteResult.routing,
+    );
+
+    return res.json({
+      success: true,
+      txHash,
+      outputAmount: quoteResult.outputAmount,
+      gasFeeUSD: quoteResult.gasFeeUSD,
+      priceImpact: quoteResult.priceImpact,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Settlement swap failed";
+    console.error("Settlement swap error:", message);
+    return res.status(500).json({ error: message });
+  }
 });
 
 export default router;
