@@ -402,6 +402,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const [agentAvatarUrl, setAgentAvatarUrlState] = useState<string | null>(null);
 
+  const hydratedRef = useRef(false);
   const walletKey = walletAddress?.toLowerCase() ?? '';
 
   useEffect(() => {
@@ -418,6 +419,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setStage(persisted?.stage ?? 'INITIAL');
     setThreads(persisted?.threads ?? SEED_THREADS);
     setActiveThreadId(null);
+    hydratedRef.current = true;
   }, [walletKey]);
 
   const setAgentAvatarUrl = useCallback((url: string | null) => {
@@ -454,6 +456,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!hydratedRef.current) return;
     persistState(walletRef.current, feed, rules, spendPermissions, stage, threads);
   }, [feed, rules, spendPermissions, stage, threads]);
 
