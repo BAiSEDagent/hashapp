@@ -324,7 +324,7 @@ function loadPersistedState(walletAddress: string | undefined) {
   return null;
 }
 
-function persistState(walletAddress: string | undefined, feed: FeedItem[], rules: Rule[], spendPermissions: SpendPermission[], stage: DemoState['stage'], threads: Thread[]) {
+function persistState(walletAddress: string | undefined, feed: FeedItem[], rules: Rule[], spendPermissions: SpendPermission[], stage: DemoState['stage'], threads: Thread[], privateReasoningEnabled: boolean) {
   const key = stateKey(walletAddress);
   if (!key) return;
   try {
@@ -335,6 +335,7 @@ function persistState(walletAddress: string | undefined, feed: FeedItem[], rules
       spendPermissions,
       stage,
       threads,
+      privateReasoningEnabled,
     }));
   } catch {}
 }
@@ -418,6 +419,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     setSpendPermissions(persisted?.spendPermissions ?? INITIAL_SPEND_PERMISSIONS);
     setStage(persisted?.stage ?? 'INITIAL');
     setThreads(persisted?.threads ?? SEED_THREADS);
+    setPrivateReasoningEnabled(persisted?.privateReasoningEnabled ?? true);
     setActiveThreadId(null);
     hydratedRef.current = true;
   }, [walletKey]);
@@ -457,8 +459,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydratedRef.current) return;
-    persistState(walletRef.current, feed, rules, spendPermissions, stage, threads);
-  }, [feed, rules, spendPermissions, stage, threads]);
+    persistState(walletRef.current, feed, rules, spendPermissions, stage, threads, privateReasoningEnabled);
+  }, [feed, rules, spendPermissions, stage, threads, privateReasoningEnabled]);
 
   const agentLabel = connectedAgent?.name ?? 'Your agent';
 
